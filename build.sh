@@ -61,21 +61,29 @@ OBJC_FLAGS=(-fobjc-arc -fmodules -fmodules-cache-path="$OUT/ModuleCache" -arch a
     -miphoneos-version-min="$MINIMUM_IOS_VERSION"
     -isysroot "$SDK" -Wall -Wextra -Werror -O2)
 OBJC_SOURCES=(WQCore.m WQAccess.m WQLaunchServices.m WQUI.m WQSharing.m WQApps.m WQCache.m WQPlistEditor.m WQHexViewer.m WQPatch.m WQSettings.m main.m)
-OBJC_OBJECTS=()
-for source in "${OBJC_SOURCES[@]}"; do
-    object="$OUT/$(basename "${source%.m}").o"
-    xcrun --sdk iphoneos clang "${OBJC_FLAGS[@]}" -c "$source" -o "$object"
-    OBJC_OBJECTS+=("$object")
-done
-cat WQCalculadoraIPhoneView.swift WQGateHostController.swift > "$OUT/WQSwiftSources.swift"
-xcrun --sdk iphoneos swiftc -target arm64-apple-ios${MINIMUM_IOS_VERSION} -sdk "$SDK" \
-    -swift-version 5 -parse-as-library -O -whole-module-optimization "$OUT/WQSwiftSources.swift" \
-    "${OBJC_OBJECTS[@]}" -o "$APP/WQFiles" \
-    -Xlinker -rpath -Xlinker /usr/lib/swift \
-    -framework UIKit -framework Foundation -framework Security -framework SwiftUI -framework AVFAudio -framework UniformTypeIdentifiers
+if [[ -f WQCalculadoraIPhoneView.swift && -f WQGateHostController.swift ]]; then
+    OBJC_OBJECTS=()
+    for source in "${OBJC_SOURCES[@]}"; do
+        object="$OUT/$(basename "${source%.m}").o"
+        xcrun --sdk iphoneos clang "${OBJC_FLAGS[@]}" -c "$source" -o "$object"
+        OBJC_OBJECTS+=("$object")
+    done
+    cat WQCalculadoraIPhoneView.swift WQGateHostController.swift > "$OUT/WQSwiftSources.swift"
+    xcrun --sdk iphoneos swiftc -target arm64-apple-ios${MINIMUM_IOS_VERSION} -sdk "$SDK" \
+        -swift-version 5 -parse-as-library -O -whole-module-optimization "$OUT/WQSwiftSources.swift" \
+        "${OBJC_OBJECTS[@]}" -o "$APP/WQFiles" \
+        -Xlinker -rpath -Xlinker /usr/lib/swift \
+        -framework UIKit -framework Foundation -framework Security -framework SwiftUI -framework AVFAudio -framework UniformTypeIdentifiers
+else
+    xcrun --sdk iphoneos clang "${OBJC_FLAGS[@]}" \
+        -framework UIKit -framework Foundation -framework Security -framework UniformTypeIdentifiers \
+        "${OBJC_SOURCES[@]}" -o "$APP/WQFiles"
+fi
 cp Info.plist "$APP/Info.plist"
 cp icons/AppIcon*@*.png "$APP/"
-cp icons/FreeFireNormal.jpg icons/FreeFireMax.jpg "$APP/"
+if [[ -f icons/FreeFireNormal.jpg && -f icons/FreeFireMax.jpg ]]; then
+    cp icons/FreeFireNormal.jpg icons/FreeFireMax.jpg "$APP/"
+fi
 plutil -convert binary1 "$APP/Info.plist"
 codesign -f -s - --entitlements entitlements.plist "$APP"
 
