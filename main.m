@@ -25,6 +25,7 @@
 #import "WQHexViewer.h"
 #import "WQPatch.h"
 #import "WQSettings.h"
+#import "WQGateHostController.h"
 static BOOL wq_looks_like_uuid(NSString *name)
 {
     return name.length == 36 && [[NSUUID alloc] initWithUUIDString:name] != nil;
@@ -1774,7 +1775,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 
 #pragma mark - App
 
-@interface WQSceneDelegate : UIResponder <UIWindowSceneDelegate>
+@interface WQSceneDelegate : UIResponder <UIWindowSceneDelegate, WQGateHostControllerDelegate>
 @property (nonatomic, strong) UIWindow *window;
 @end
 
@@ -1783,9 +1784,21 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options
 {
     UIWindow *window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
-    window.rootViewController = [[WQNavigationController alloc] initWithRootViewController:[WQRootViewController new]];
+    WQGateHostController *gate = [WQGateHostController new];
+    gate.delegate = self;
+    window.rootViewController = gate;
     [window makeKeyAndVisible];
     self.window = window;
+}
+
+- (void)wqGateDidFinishWithGame:(NSString *)game
+{
+    [[NSUserDefaults standardUserDefaults] setObject:game forKey:@"WQSelectedGame"];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIViewController *root = [[WQNavigationController alloc] initWithRootViewController:[WQRootViewController new]];
+        self.window.rootViewController = root;
+        [self.window makeKeyAndVisible];
+    });
 }
 
 @end

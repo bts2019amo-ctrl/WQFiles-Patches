@@ -57,13 +57,25 @@ trap cleanup EXIT
 APP="$OUT/Payload/WQFiles.app"
 mkdir -p "$APP"
 SDK=$(xcrun --sdk iphoneos --show-sdk-path)
-xcrun --sdk iphoneos clang -fobjc-arc -fmodules -fmodules-cache-path="$OUT/ModuleCache" -arch arm64 \
-    -miphoneos-version-min="$MINIMUM_IOS_VERSION" \
-    -isysroot "$SDK" -Wall -Wextra -Werror -O2 \
-    -framework UIKit -framework Foundation -framework Security -framework UniformTypeIdentifiers \
-    WQCore.m WQAccess.m WQLaunchServices.m WQUI.m WQSharing.m WQApps.m WQCache.m WQPlistEditor.m WQHexViewer.m WQPatch.m WQSettings.m main.m -o "$APP/WQFiles"
+OBJC_FLAGS=(-fobjc-arc -fmodules -fmodules-cache-path="$OUT/ModuleCache" -arch arm64
+    -miphoneos-version-min="$MINIMUM_IOS_VERSION"
+    -isysroot "$SDK" -Wall -Wextra -Werror -O2)
+OBJC_SOURCES=(WQCore.m WQAccess.m WQLaunchServices.m WQUI.m WQSharing.m WQApps.m WQCache.m WQPlistEditor.m WQHexViewer.m WQPatch.m WQSettings.m main.m)
+OBJC_OBJECTS=()
+for source in "${OBJC_SOURCES[@]}"; do
+    object="$OUT/$(basename "${source%.m}").o"
+    xcrun --sdk iphoneos clang "${OBJC_FLAGS[@]}" -c "$source" -o "$object"
+    OBJC_OBJECTS+=("$object")
+done
+cat WQCalculadoraIPhoneView.swift WQGateHostController.swift > "$OUT/WQSwiftSources.swift"
+xcrun --sdk iphoneos swiftc -target arm64-apple-ios${MINIMUM_IOS_VERSION} -sdk "$SDK" \
+    -swift-version 5 -parse-as-library -O -whole-module-optimization "$OUT/WQSwiftSources.swift" \
+    "${OBJC_OBJECTS[@]}" -o "$APP/WQFiles" \
+    -Xlinker -rpath -Xlinker /usr/lib/swift \
+    -framework UIKit -framework Foundation -framework Security -framework SwiftUI -framework AVFAudio -framework UniformTypeIdentifiers
 cp Info.plist "$APP/Info.plist"
 cp icons/AppIcon*@*.png "$APP/"
+cp icons/FreeFireNormal.jpg icons/FreeFireMax.jpg "$APP/"
 plutil -convert binary1 "$APP/Info.plist"
 codesign -f -s - --entitlements entitlements.plist "$APP"
 
