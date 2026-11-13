@@ -6,7 +6,6 @@
 #import "WQAccess.h"
 #import "WQLaunchServices.h"
 #import "WQUI.h"
-#import "WQRemoteSync.h"
 #import <CommonCrypto/CommonDigest.h>
 
 static NSString *const kManifest = @"manifest.plist";
@@ -239,189 +238,8 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     return [wq_patch_manifest(patchPath)[@"Applied"] boolValue];
 }
 
-static NSNumber *wq_remote_id_from_manifest(NSDictionary *manifest)
-{
-    id value = manifest[@"RemoteID"];
-    return [value isKindOfClass:NSNumber.class] ? value : nil;
-}
-
-static BOOL wq_remote_id_in_array(NSNumber *remoteID, NSArray<NSNumber *> *ids)
-{
-    for (NSNumber *candidate in ids) if ([candidate isEqualToNumber:remoteID]) return YES;
-    return NO;
-}
-
-BOOL wq_patch_remote_needs_update(NSDictionary *remoteManifest)
-{
-    NSNumber *remoteID = [remoteManifest[@"id"] isKindOfClass:NSNumber.class] ? remoteManifest[@"id"] : nil;
-    NSString *updatedAt = [remoteManifest[@"updatedAt"] isKindOfClass:NSString.class] ? remoteManifest[@"updatedAt"] : nil;
-    if (!remoteID || !updatedAt.length) return YES;
-    NSArray<NSString *> *names = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:wq_patch_root() error:nil] ?: @[];
-    for (NSString *name in names) {
-        if (![name.pathExtension isEqualToString:@"wqpatch"]) continue;
-        NSDictionary *manifest = wq_patch_manifest([wq_patch_root() stringByAppendingPathComponent:name]);
-        NSNumber *localID = wq_remote_id_from_manifest(manifest ?: @{});
-        NSString *localDate = [manifest[@"RemoteUpdatedAt"] isKindOfClass:NSString.class] ? manifest[@"RemoteUpdatedAt"] : nil;
-        if ([localID isEqualToNumber:remoteID]) return ![localDate isEqualToString:updatedAt];
-    }
-    return YES;
-}
-
-BOOL wq_patch_import_remote(NSDictionary *remoteManifest, NSData *payload, NSString **errorText)
-{
-    NSNumber *remoteID = [remoteManifest[@"id"] isKindOfClass:NSNumber.class] ? remoteManifest[@"id"] : nil;
-    NSString *name = [remoteManifest[@"name"] isKindOfClass:NSString.class] ? remoteManifest[@"name"] : nil;
-    NSString *bundleID = [remoteManifest[@"bundleId"] isKindOfClass:NSString.class] ? remoteManifest[@"bundleId"] : nil;
-    NSString *relative = [remoteManifest[@"relativePath"] isKindOfClass:NSString.class] ? remoteManifest[@"relativePath"] : nil;
-    NSString *updatedAt = [remoteManifest[@"updatedAt"] isKindOfClass:NSString.class] ? remoteManifest[@"updatedAt"] : nil;
-    if (!remoteID || !name.length || !bundleID.length || !wq_patch_relative_valid(relative) || [bundleID containsString:@"/"] || [bundleID containsString:@"\\"] || !payload.length) {
-        if (errorText) *errorText = @"O manifesto remoto foi recusado por validação de segurança.";
-        return NO;
-    }
-    NSString *root = wq_patch_root();
-    if (![[NSFileManager defaultManager] createDirectoryAtPath:root withIntermediateDirectories:YES attributes:nil error:nil]) {
-        if (errorText) *errorText = @"Não foi possível preparar a pasta de patches.";
-        return NO;
-    }
-    NSString *patchPath = nil;
-    NSArray<NSString *> *names = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:root error:nil] ?: @[];
-    for (NSString *fileName in names) {
-        if (![fileName.pathExtension isEqualToString:@"wqpatch"]) continue;
-        NSString *candidate = [root stringByAppendingPathComponent:fileName];
-        NSDictionary *existing = wq_patch_manifest(candidate);
-        if ([wq_remote_id_from_manifest(existing ?: @{}) isEqualToNumber:remoteID]) { patchPath = candidate; break; }
-    }
-    if (!patchPath) {
-        NSString *directoryName = [NSString stringWithFormat:@"Remote-%@-%@.wqpatch", remoteID, wq_patch_safe_name(name)];
-        patchPath = [root stringByAppendingPathComponent:directoryName];
-        if (![[NSFileManager defaultManager] createDirectoryAtPath:patchPath withIntermediateDirectories:NO attributes:nil error:nil]) {
-            if (errorText) *errorText = @"Não foi possível criar o pacote remoto.";
-            return NO;
-        }
-    }
-    NSDictionary *existing = wq_patch_manifest(patchPath);
-    if ([existing[@"Applied"] boolValue] && ![existing[@"RemoteUpdatedAt"] isEqual:updatedAt]) {
-        if (errorText) *errorText = @"O patch remoto está aplicado; restaure-o antes de aceitar uma nova versão.";
-        return NO;
-    }
-    NSString *payloadPath = [patchPath stringByAppendingPathComponent:kPayload];
-    if (![payload writeToFile:payloadPath atomically:YES]) {
-        if (errorText) *errorText = @"Não foi possível salvar o payload remoto.";
-        return NO;
-    }
-    NSDictionary *manifest = @{
-        @"Format": @1,
-        @"Name": wq_patch_safe_name(name),
-        @"BundleID": bundleID,
-        @"RelativePath": relative,
-        @"PayloadHash": wq_patch_hash(payload),
-        @"Applied": @NO,
-        @"CreatedAt": @([NSDate date].timeIntervalSince1970),
-        @"RemoteID": remoteID,
-        @"RemoteUpdatedAt": updatedAt ?: @"",
-        @"RemoteCategory": remoteManifest[@"category"] ?: @"external",
-        @"RemoteVariant": remoteManifest[@"variant"] ?: @"normal",
-        @"Source": @"remote",
-    };
-    if (!wq_patch_save_manifest(manifest, patchPath, errorText)) return NO;
-    return YES;
-}
-
-BOOL wq_patch_prune_remote_not_in(NSArray<NSNumber *> *activeRemoteIDs, NSString **errorText)
-{
-    NSString *firstError = nil;
-    NSString *root = wq_patch_root();
-    NSArray<NSString *> *names = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:root error:nil] ?: @[];
-    for (NSString *name in names) {
-        if (![name.pathExtension isEqualToString:@"wqpatch"]) continue;
-        NSString *path = [root stringByAppendingPathComponent:name];
-        NSDictionary *manifest = wq_patch_manifest(path);
-        NSNumber *remoteID = wq_remote_id_from_manifest(manifest ?: @{});
-        if (!remoteID || wq_remote_id_in_array(remoteID, activeRemoteIDs)) continue;
-        if ([manifest[@"Applied"] boolValue]) {
-            NSString *restoreError = nil;
-            if (!wq_patch_restore(path, &restoreError)) { if (!firstError) firstError = restoreError; continue; }
-        }
-        if (![[NSFileManager defaultManager] removeItemAtPath:path error:nil] && !firstError) firstError = @"Um patch remoto saiu do manifesto, mas não pôde ser removido.";
-    }
-    if (errorText) *errorText = firstError;
-    return firstError == nil;
-}
-
 @interface WQPatchViewController ()
 @property (nonatomic, strong) NSArray<NSString *> *patches;
-@property (nonatomic, copy) NSArray<NSArray<NSString *> *> *menuItems;
-@property (nonatomic) BOOL menuExpanded;
-@end
-
-@interface WQPatchCategoryViewController : UIViewController
-- (instancetype)initWithTitle:(NSString *)title symbol:(NSString *)symbol;
-@end
-
-@implementation WQPatchCategoryViewController {
-    NSString *_categoryTitle;
-    NSString *_categorySymbol;
-}
-
-- (instancetype)initWithTitle:(NSString *)title symbol:(NSString *)symbol
-{
-    if ((self = [super initWithNibName:nil bundle:nil])) {
-        _categoryTitle = [title copy];
-        _categorySymbol = [symbol copy];
-    }
-    return self;
-}
-
-- (void)viewDidLoad
-{
-    [super viewDidLoad];
-    self.title = _categoryTitle;
-    self.view.backgroundColor = UIColor.clearColor;
-    UIView *particles = [NSClassFromString(@"WQParticleBackgroundView") new];
-    particles.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view insertSubview:particles atIndex:0];
-    [NSLayoutConstraint activateConstraints:@[
-        [particles.topAnchor constraintEqualToAnchor:self.view.topAnchor],
-        [particles.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-        [particles.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [particles.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-    ]];
-
-    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:_categorySymbol]];
-    icon.translatesAutoresizingMaskIntoConstraints = NO;
-    icon.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.86];
-    icon.contentMode = UIViewContentModeScaleAspectFit;
-    icon.preferredSymbolConfiguration = [UIImageSymbolConfiguration configurationWithPointSize:42 weight:UIImageSymbolWeightMedium];
-
-    UILabel *title = [UILabel new];
-    title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = _categoryTitle;
-    title.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.94];
-    title.font = [UIFont systemFontOfSize:24 weight:UIFontWeightSemibold];
-    title.textAlignment = NSTextAlignmentCenter;
-
-    UILabel *subtitle = [UILabel new];
-    subtitle.translatesAutoresizingMaskIntoConstraints = NO;
-    subtitle.text = @"Área preparada para receber os patches.";
-    subtitle.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.56];
-    subtitle.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
-    subtitle.textAlignment = NSTextAlignmentCenter;
-
-    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[icon, title, subtitle]];
-    stack.translatesAutoresizingMaskIntoConstraints = NO;
-    stack.axis = UILayoutConstraintAxisVertical;
-    stack.alignment = UIStackViewAlignmentCenter;
-    stack.spacing = 14;
-    [self.view addSubview:stack];
-    [NSLayoutConstraint activateConstraints:@[
-        [icon.widthAnchor constraintEqualToConstant:58],
-        [icon.heightAnchor constraintEqualToConstant:58],
-        [stack.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [stack.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor constant:-30],
-        [stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.view.leadingAnchor constant:24],
-        [stack.trailingAnchor constraintLessThanOrEqualToAnchor:self.view.trailingAnchor constant:-24],
-    ]];
-}
 @end
 
 @implementation WQPatchViewController
@@ -429,39 +247,8 @@ BOOL wq_patch_prune_remote_not_in(NSArray<NSNumber *> *activeRemoteIDs, NSString
 {
     [super viewDidLoad];
     self.title = @"Patches";
-    self.view.backgroundColor = UIColor.clearColor;
-    UIView *particles = [NSClassFromString(@"WQParticleBackgroundView") new];
-    particles.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.view insertSubview:particles atIndex:0];
-    [NSLayoutConstraint activateConstraints:@[
-        [particles.topAnchor constraintEqualToAnchor:self.view.topAnchor],
-        [particles.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-        [particles.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-        [particles.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-    ]];
-    self.tableView.backgroundColor = UIColor.clearColor;
-    self.tableView.backgroundView = nil;
-    self.tableView.separatorColor = [[WQRemoteSync themeColorForKey:@"borderColor" fallback:UIColor.whiteColor] colorWithAlphaComponent:0.55];
-    self.menuItems = @[
-        @[@"Cache", @"archivebox"],
-        @[@"Avatar", @"person.crop.circle"],
-        @[@"Skin", @"paintbrush"],
-        @[@"Holograma", @"cube.transparent"],
-        @[@"EXTERNAL", @"shield.lefthalf.filled"],
-    ];
     UIBarButtonItem *add = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
     self.navigationItem.rightBarButtonItem = add;
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(remoteManifestDidUpdate:) name:WQRemoteSyncDidUpdateNotification object:nil];
-    [[WQRemoteSync shared] start];
-    [self reloadPatches];
-}
-- (void)dealloc
-{
-    [[NSNotificationCenter defaultCenter] removeObserver:self];
-}
-- (void)remoteManifestDidUpdate:(NSNotification *)notification
-{
-    (void)notification;
     [self reloadPatches];
 }
 - (void)reloadPatches
@@ -474,86 +261,30 @@ BOOL wq_patch_prune_remote_not_in(NSArray<NSNumber *> *activeRemoteIDs, NSString
         dispatch_async(dispatch_get_main_queue(), ^{ self.patches = paths; [self.tableView reloadData]; });
     });
 }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 2; }
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
-{
-    return section == 0 ? (self.menuExpanded ? self.menuItems.count + 1 : 1) : self.patches.count;
-}
-
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
-{
-    return section == 0 ? @"Categorias" : @"Patches";
-}
-
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.patches.count; }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"patch"] ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"patch"];
-    cell.accessoryView = nil;
-    cell.accessoryType = UITableViewCellAccessoryNone;
-    cell.detailTextLabel.text = nil;
-    cell.imageView.image = nil;
-    cell.backgroundColor = [WQRemoteSync themeColorForKey:@"surfaceColor" fallback:UIColor.clearColor];
-    cell.contentView.backgroundColor = [WQRemoteSync themeColorForKey:@"surfaceColor" fallback:UIColor.clearColor];
-    cell.textLabel.textColor = [WQRemoteSync themeColorForKey:@"textColor" fallback:[UIColor.whiteColor colorWithAlphaComponent:0.92]];
-    cell.tintColor = [WQRemoteSync themeColorForKey:@"accentColor" fallback:[UIColor.whiteColor colorWithAlphaComponent:0.78]];
-    if (indexPath.section == 0) {
-        if (indexPath.row == 0) {
-            cell.textLabel.text = @"Menu";
-            cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
-            cell.imageView.image = [UIImage systemImageNamed:@"line.3.horizontal.decrease.circle"];
-            cell.imageView.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.86];
-            cell.accessoryType = self.menuExpanded ? UITableViewCellAccessoryDetailDisclosureButton : UITableViewCellAccessoryDisclosureIndicator;
-            return cell;
-        }
-        NSArray<NSString *> *item = self.menuItems[(NSUInteger)indexPath.row - 1];
-        cell.textLabel.text = item[0];
-        cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightMedium];
-        cell.imageView.image = [UIImage systemImageNamed:item[1]];
-        cell.imageView.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.82];
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        return cell;
-    }
     NSString *path = self.patches[(NSUInteger)indexPath.row]; NSDictionary *m = wq_patch_manifest(path);
     cell.textLabel.text = m[@"Name"] ?: path.lastPathComponent.stringByDeletingPathExtension;
     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"TargetFileName"] ?: m[@"RelativePath"] ?: @"?"];
-    cell.detailTextLabel.textColor = [WQRemoteSync themeColorForKey:@"mutedColor" fallback:[UIColor.whiteColor colorWithAlphaComponent:0.56]];
-    UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.enabled = ![WQRemoteSync shared].isBlocked; toggle.tag = indexPath.row; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
+    UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
     cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.circle.fill" : @"circle"];
     return cell;
 }
 - (void)togglePatch:(UISwitch *)sender
 {
-    if ([WQRemoteSync shared].isBlocked) {
-        sender.on = !sender.isOn;
-        sender.enabled = YES;
-        wq_alert(self, @"Ação bloqueada", @"O app está em manutenção ou precisa da nova IPA antes de aplicar patches.");
-        return;
-    }
     NSInteger row = sender.tag; if (row < 0 || row >= (NSInteger)self.patches.count) return;
     NSString *path = self.patches[(NSUInteger)row]; BOOL on = sender.isOn; sender.enabled = NO;
     dispatch_async(wq_io(), ^{
-        NSString *error = nil; BOOL ok = ![WQRemoteSync shared].isBlocked && (on ? wq_patch_apply(path, &error) : wq_patch_restore(path, &error));
+        NSString *error = nil; BOOL ok = on ? wq_patch_apply(path, &error) : wq_patch_restore(path, &error);
         dispatch_async(dispatch_get_main_queue(), ^{
             sender.enabled = YES;
             if (!ok) { sender.on = !on; wq_alert(self, on ? @"Patch not applied" : @"Patch not restored", error ?: @"Unknown error"); }
-            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:row inSection:1]] withRowAnimation:UITableViewRowAnimationNone];
+            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:row inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
         });
     });
 }
-
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    if (indexPath.section != 0) return;
-    if (indexPath.row == 0) {
-        self.menuExpanded = !self.menuExpanded;
-        [tableView reloadSections:[NSIndexSet indexSetWithIndex:0] withRowAnimation:UITableViewRowAnimationFade];
-        return;
-    }
-    NSArray<NSString *> *item = self.menuItems[(NSUInteger)indexPath.row - 1];
-    [self.navigationController pushViewController:[[WQPatchCategoryViewController alloc] initWithTitle:item[0] symbol:item[1]] animated:YES];
-}
-
 - (void)addPatch
 {
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Create Patch" message:@"The target is the file that will be replaced. The replacement is the file whose contents will be applied when the toggle is on." preferredStyle:UIAlertControllerStyleAlert];

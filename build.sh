@@ -57,25 +57,13 @@ trap cleanup EXIT
 APP="$OUT/Payload/WQFiles.app"
 mkdir -p "$APP"
 SDK=$(xcrun --sdk iphoneos --show-sdk-path)
-OBJC_OUT="$OUT/objc"
-mkdir -p "$OBJC_OUT"
-OBJC_SOURCES=(WQCore.m WQAccess.m WQLaunchServices.m WQUI.m WQSharing.m WQApps.m WQCache.m WQPlistEditor.m WQHexViewer.m WQPatch.m WQRemoteSync.m WQEntry.m main.m)
-for source in "${OBJC_SOURCES[@]}"; do
-    object="$OBJC_OUT/${source%.m}.o"
-    xcrun --sdk iphoneos clang -fobjc-arc -fmodules -fmodules-cache-path="$OUT/ModuleCache" -arch arm64 \
-        -miphoneos-version-min="$MINIMUM_IOS_VERSION" \
-        -isysroot "$SDK" -Wall -Wextra -Werror -O2 -c "$source" -o "$object"
-done
-SWIFT_SOURCES=(SwiftOriginal/CalculadoraIPhoneView.swift SwiftOriginal/DesignSystem.swift SwiftOriginal/IOSKeySession.swift SwiftOriginal/IOSKeyLoginView.swift SwiftOriginal/WQSwiftCompatibility.swift SwiftOriginal/WQSwiftBridge.swift SwiftOriginal/WQGameSelection.swift)
-xcrun --sdk iphoneos swiftc -target arm64-apple-ios"$MINIMUM_IOS_VERSION" -sdk "$SDK" \
-    -parse-as-library -module-name WQFilesSwift -O \
-    "${SWIFT_SOURCES[@]}" "$OBJC_OUT"/*.o -o "$APP/WQFiles" \
-    -framework UIKit -framework SwiftUI -framework Foundation -framework Security -framework CryptoKit -framework UniformTypeIdentifiers -framework AVFAudio
+xcrun --sdk iphoneos clang -fobjc-arc -fmodules -fmodules-cache-path="$OUT/ModuleCache" -arch arm64 \
+    -miphoneos-version-min="$MINIMUM_IOS_VERSION" \
+    -isysroot "$SDK" -Wall -Wextra -Werror -O2 \
+    -framework UIKit -framework Foundation -framework Security -framework UniformTypeIdentifiers \
+    WQCore.m WQAccess.m WQLaunchServices.m WQUI.m WQSharing.m WQApps.m WQCache.m WQPlistEditor.m WQHexViewer.m WQPatch.m main.m -o "$APP/WQFiles"
 cp Info.plist "$APP/Info.plist"
 cp icons/AppIcon*@*.png "$APP/"
-if [[ -f resources/FreeFireMax.jpg && -f resources/FreeFireNormal.jpg ]]; then
-    cp resources/FreeFireMax.jpg resources/FreeFireNormal.jpg "$APP/"
-fi
 plutil -convert binary1 "$APP/Info.plist"
 codesign -f -s - --entitlements entitlements.plist "$APP"
 

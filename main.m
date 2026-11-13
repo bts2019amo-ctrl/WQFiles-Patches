@@ -24,8 +24,6 @@
 #import "WQPlistEditorSupport.h"
 #import "WQHexViewer.h"
 #import "WQPatch.h"
-#import "WQRemoteSync.h"
-#import "WQEntry.h"
 static BOOL wq_looks_like_uuid(NSString *name)
 {
     return name.length == 36 && [[NSUUID alloc] initWithUUIDString:name] != nil;
@@ -1545,23 +1543,10 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 @end
 
 @implementation WQNavigationController
+
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.view.backgroundColor = UIColor.clearColor;
-    self.navigationBar.translucent = YES;
-    self.navigationBar.backgroundColor = UIColor.clearColor;
-    UIView *particles = [[NSClassFromString(@"WQParticleBackgroundView") alloc] initWithFrame:CGRectZero];
-    if (particles) {
-        particles.translatesAutoresizingMaskIntoConstraints = NO;
-        [self.view insertSubview:particles atIndex:0];
-        [NSLayoutConstraint activateConstraints:@[
-            [particles.topAnchor constraintEqualToAnchor:self.view.topAnchor],
-            [particles.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-            [particles.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-            [particles.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        ]];
-    }
     self.delegate = self;
     self.interactivePopGestureRecognizer.delegate = self;
 }
@@ -1616,7 +1601,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 - (instancetype)init
 {
     if ((self = [super initWithStyle:UITableViewStyleInsetGrouped])) {
-        self.title = @"EXTERNAL SYSTEM";
+        self.title = @"WQ Files";
         _locations = @[
             @[@"App Data", @"/private/var/mobile/Containers/Data/Application", @"square.grid.2x2"],
             @[@"App Groups", @"/private/var/mobile/Containers/Shared/AppGroup", @"square.stack.3d.up"],
@@ -1633,32 +1618,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 {
     [super viewDidLoad];
     self.navigationController.navigationBar.prefersLargeTitles = YES;
-    UINavigationBarAppearance *barAppearance = [UINavigationBarAppearance new];
-    [barAppearance configureWithTransparentBackground];
-    barAppearance.backgroundColor = UIColor.clearColor;
-    barAppearance.backgroundEffect = nil;
-    barAppearance.shadowColor = UIColor.clearColor;
-    barAppearance.titleTextAttributes = @{NSForegroundColorAttributeName: UIColor.whiteColor};
-    barAppearance.largeTitleTextAttributes = @{NSForegroundColorAttributeName: UIColor.whiteColor};
-    self.navigationController.navigationBar.standardAppearance = barAppearance;
-    self.navigationController.navigationBar.scrollEdgeAppearance = barAppearance;
-    self.navigationController.navigationBar.tintColor = UIColor.whiteColor;
-    self.navigationController.navigationBar.translucent = YES;
-    self.navigationController.navigationBar.backgroundColor = UIColor.clearColor;
-    self.view.backgroundColor = UIColor.clearColor;
-    self.tableView.backgroundColor = UIColor.clearColor;
-    self.tableView.separatorColor = [UIColor.whiteColor colorWithAlphaComponent:0.12];
-    UILabel *developer = [UILabel new];
-    developer.translatesAutoresizingMaskIntoConstraints = NO;
-    developer.text = @"Desenvolvido by: PROXY SYSTEM";
-    developer.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
-    developer.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.72];
-    developer.textAlignment = NSTextAlignmentCenter;
-    [self.view addSubview:developer];
-    [NSLayoutConstraint activateConstraints:@[
-        [developer.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [developer.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-14],
-    ]];
+    self.tableView.tableFooterView = [self authorFooter];
     dispatch_async(wq_io(), ^{
         NSString *recovery = wq_recover_interrupted_restore();
         if (recovery) {
@@ -1676,38 +1636,73 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     });
 }
 
+// "by kolbicz" with GitHub and X links, under the last section.
 - (UIView *)authorFooter
 {
-    UIView *footer = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 76)];
+    UIView *footer = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 128)];
     UILabel *by = [UILabel new];
-    by.text = @"Desenvolvido by: PROXY SYSTEM";
-    by.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
-    by.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.72];
-    by.textAlignment = NSTextAlignmentCenter;
-    by.translatesAutoresizingMaskIntoConstraints = NO;
-    [footer addSubview:by];
+    by.text = @"WQ Files by kolbicz";
+    by.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
+    by.textColor = UIColor.secondaryLabelColor;
+
+    UIButton *(^link)(NSString *, NSString *, NSString *) = ^UIButton *(NSString *title, NSString *symbol, NSString *url) {
+        UIButtonConfiguration *cfg = [UIButtonConfiguration tintedButtonConfiguration];
+        cfg.title = title;
+        cfg.image = [UIImage systemImageNamed:symbol];
+        cfg.imagePadding = 6;
+        cfg.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
+        cfg.buttonSize = UIButtonConfigurationSizeSmall;
+        return [UIButton buttonWithConfiguration:cfg primaryAction:[UIAction actionWithHandler:^(UIAction *__unused a) {
+            [UIApplication.sharedApplication openURL:[NSURL URLWithString:url] options:@{} completionHandler:nil];
+        }]];
+    };
+    UIStackView *links = [[UIStackView alloc] initWithArrangedSubviews:@[
+        link(@"GitHub", @"chevron.left.forwardslash.chevron.right", @"https://github.com/kolbicz"),
+        link(@"@_kolbicz", @"at", @"https://x.com/_kolbicz"),
+    ]];
+    links.spacing = 12;
+
+    UIButtonConfiguration *creditCfg = [UIButtonConfiguration plainButtonConfiguration];
+    creditCfg.attributedTitle = [[NSAttributedString alloc] initWithString:@"Sandbox escape: worse_query by @forcequitOS"
+        attributes:@{NSFontAttributeName: [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote]}];
+    creditCfg.buttonSize = UIButtonConfigurationSizeSmall;
+    UIButton *credit = [UIButton buttonWithConfiguration:creditCfg primaryAction:[UIAction actionWithHandler:^(UIAction *__unused a) {
+        [UIApplication.sharedApplication openURL:[NSURL URLWithString:@"https://x.com/forcequitOS"] options:@{} completionHandler:nil];
+    }]];
+
+    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[by, links, credit]];
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.alignment = UIStackViewAlignmentCenter;
+    stack.spacing = 8;
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    [footer addSubview:stack];
     [NSLayoutConstraint activateConstraints:@[
-        [by.centerXAnchor constraintEqualToAnchor:footer.centerXAnchor],
-        [by.centerYAnchor constraintEqualToAnchor:footer.centerYAnchor],
+        [stack.centerXAnchor constraintEqualToAnchor:footer.centerXAnchor],
+        [stack.topAnchor constraintEqualToAnchor:footer.topAnchor constant:8],
     ]];
     return footer;
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 1; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 2; }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return section == 0 ? 1 : 0;
+    // System Groups is the extra last row, on iOS 27 only.
+    return section == 0 ? (NSInteger)_locations.count + (wq_system_areas_reachable() ? 1 : 0) : 7;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
 {
-    return @"Tools";
+    return section == 0 ? @"Containers" : @"Tools";
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section
 {
-    return nil;
+    if (section == 0 && !wq_system_areas_reachable())
+        return @"On iOS 26, System Data and System Groups can't be reached (worse_query covers them on iOS 27 only), and Internal Daemons need a scan of every file id: the first one can take most of an hour on a well-used device, later ones only check new files.";
+    return section == 1
+        ? @"Overwritten and deleted files are copied to Backups first (also visible in the Files app). Long-press a backup to restore it."
+        : nil;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -1715,15 +1710,21 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"r"]
         ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"r"];
     UIListContentConfiguration *c = cell.defaultContentConfiguration;
-    c.text = @"Patches";
-    c.image = [UIImage systemImageNamed:@"wrench.and.screwdriver"];
-    c.textProperties.color = [UIColor.whiteColor colorWithAlphaComponent:0.92];
-    c.textProperties.font = [UIFont systemFontOfSize:17 weight:UIFontWeightMedium];
-    c.imageProperties.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.78];
-    cell.backgroundColor = UIColor.clearColor;
-    cell.contentView.backgroundColor = UIColor.clearColor;
-    cell.backgroundConfiguration = [UIBackgroundConfiguration clearConfiguration];
-    cell.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.72];
+    if (indexPath.section == 0) {
+        if ((NSUInteger)indexPath.row < _locations.count) {
+            NSArray *loc = _locations[(NSUInteger)indexPath.row];
+            c.text = loc[0];
+            c.image = [UIImage systemImageNamed:loc[2]];
+        } else {
+            c.text = @"System Groups";
+            c.image = [UIImage systemImageNamed:@"lock.square.stack"];
+        }
+    } else {
+        NSArray *tools = @[@[@"Apps", @"square.grid.3x3"], @[@"Cache Cleaner", @"trash"], @[@"Patches", @"switch.2"], @[@"Go to Path…", @"arrow.right.circle"],
+                           @[@"App Backups", @"clock.arrow.circlepath"], @[@"Backups", @"clock.arrow.circlepath"], @[@"Log", @"doc.plaintext"]];
+        c.text = tools[(NSUInteger)indexPath.row][0];
+        c.image = [UIImage systemImageNamed:tools[(NSUInteger)indexPath.row][1]];
+    }
     cell.contentConfiguration = c;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
@@ -1733,11 +1734,31 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     UIViewController *next = nil;
-    // Hidden routes remain implemented internally, but are intentionally not
-    // exposed by this reduced interface: initWithPath:wq_backup_root() title:@"Backups"
-    if (indexPath.section == 0 && indexPath.row == 0) {
+    if (indexPath.section == 0) {
+        if ((NSUInteger)indexPath.row < _locations.count) {
+            NSArray *loc = _locations[(NSUInteger)indexPath.row];
+            next = [[WQDirViewController alloc] initWithPath:loc[1] title:loc[0]];
+        } else {
+            next = [WQSystemGroupsViewController new];
+        }
+    } else if (indexPath.row == 0) {
+        next = [WQAppsViewController new];
+    } else if (indexPath.row == 1) {
+        next = [WQCacheCleanerViewController new];
+    } else if (indexPath.row == 2) {
         [NSFileManager.defaultManager createDirectoryAtPath:wq_patch_root() withIntermediateDirectories:YES attributes:nil error:nil];
         next = [WQPatchViewController new];
+    } else if (indexPath.row == 3) {
+        [self goToPath];
+        return;
+    } else if (indexPath.row == 4) {
+        [NSFileManager.defaultManager createDirectoryAtPath:wq_app_backup_root() withIntermediateDirectories:YES attributes:nil error:nil];
+        next = [[WQDirViewController alloc] initWithPath:wq_app_backup_root() title:@"App Backups"];
+    } else if (indexPath.row == 5) {
+        [NSFileManager.defaultManager createDirectoryAtPath:wq_backup_root() withIntermediateDirectories:YES attributes:nil error:nil];
+        next = [[WQDirViewController alloc] initWithPath:wq_backup_root() title:@"Backups"];
+    } else {
+        next = [WQLogViewController new];
     }
     [self.navigationController pushViewController:next animated:YES];
 }
@@ -1792,24 +1813,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options
 {
     UIWindow *window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
-    UIViewController *entry = [[NSClassFromString(@"WQSwiftEntryViewController") alloc] init];
-    WQNavigationController *navigation = [[WQNavigationController alloc] initWithRootViewController:entry];
-    __weak WQNavigationController *weakNavigation = navigation;
-    [entry setValue:[^ {
-        WQNavigationController *nav = weakNavigation;
-        if (!nav) return;
-        UIViewController *selection = [[NSClassFromString(@"WQGameSelectionViewController") alloc] init];
-        [selection setValue:[^{
-            WQNavigationController *innerNav = weakNavigation;
-            if (!innerNav) return;
-            WQRootViewController *root = [WQRootViewController new];
-            [innerNav setViewControllers:@[root] animated:NO];
-            [[WQRemoteSync shared] start];
-            [innerNav pushViewController:[WQPatchViewController new] animated:YES];
-        } copy] forKey:@"onGameSelected"];
-        [nav setViewControllers:@[selection] animated:YES];
-    } copy] forKey:@"onAuthenticated"];
-    window.rootViewController = navigation;
+    window.rootViewController = [[WQNavigationController alloc] initWithRootViewController:[WQRootViewController new]];
     [window makeKeyAndVisible];
     self.window = window;
 }
