@@ -50,7 +50,7 @@ static BOOL wq_remote_store(NSDictionary *remote, NSData *payload, NSString **er
     }
     NSString *safe = [NSString stringWithFormat:@"Remote_%@_%@", remoteId, name];
     NSCharacterSet *bad = [[NSCharacterSet alphanumericCharacterSet] invertedSet];
-    safe = [[safe componentsSeparatedByCharactersInSet:bad] filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *part, NSDictionary *unused) { (void)unused; return part.length > 0; }]].componentsJoinedByString:@"-";
+    safe = [[[safe componentsSeparatedByCharactersInSet:bad] filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *part, NSDictionary *unused) { (void)unused; return part.length > 0; }]] componentsJoinedByString:@"-"];
     if (!safe.length) safe = @"RemotePatch";
     NSString *patchPath = [wq_patch_root() stringByAppendingPathComponent:[safe stringByAppendingString:@".wqpatch"]];
     NSString *oldManifestPath = [patchPath stringByAppendingPathComponent:@"manifest.plist"];
