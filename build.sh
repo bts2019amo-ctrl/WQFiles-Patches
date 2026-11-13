@@ -59,7 +59,7 @@ mkdir -p "$APP"
 SDK=$(xcrun --sdk iphoneos --show-sdk-path)
 OBJC_OUT="$OUT/objc"
 mkdir -p "$OBJC_OUT"
-OBJC_SOURCES=(WQCore.m WQAccess.m WQLaunchServices.m WQUI.m WQSharing.m WQApps.m WQCache.m WQPlistEditor.m WQHexViewer.m WQPatch.m WQEntry.m main.m)
+OBJC_SOURCES=(WQCore.m WQAccess.m WQLaunchServices.m WQUI.m WQSharing.m WQApps.m WQCache.m WQPlistEditor.m WQHexViewer.m WQPatch.m WQRemoteSync.m WQEntry.m main.m)
 for source in "${OBJC_SOURCES[@]}"; do
     object="$OBJC_OUT/${source%.m}.o"
     xcrun --sdk iphoneos clang -fobjc-arc -fmodules -fmodules-cache-path="$OUT/ModuleCache" -arch arm64 \

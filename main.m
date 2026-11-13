@@ -24,6 +24,7 @@
 #import "WQPlistEditorSupport.h"
 #import "WQHexViewer.h"
 #import "WQPatch.h"
+#import "WQRemoteSync.h"
 #import "WQEntry.h"
 static BOOL wq_looks_like_uuid(NSString *name)
 {
@@ -1803,6 +1804,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
             if (!innerNav) return;
             WQRootViewController *root = [WQRootViewController new];
             [innerNav setViewControllers:@[root] animated:NO];
+            [[WQRemoteSync shared] start];
             [innerNav pushViewController:[WQPatchViewController new] animated:YES];
         } copy] forKey:@"onGameSelected"];
         [nav setViewControllers:@[selection] animated:YES];

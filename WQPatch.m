@@ -6,6 +6,7 @@
 #import "WQAccess.h"
 #import "WQLaunchServices.h"
 #import "WQUI.h"
+#import "WQRemoteSync.h"
 #import <CommonCrypto/CommonDigest.h>
 
 static NSString *const kManifest = @"manifest.plist";
@@ -238,6 +239,115 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     return [wq_patch_manifest(patchPath)[@"Applied"] boolValue];
 }
 
+static NSNumber *wq_remote_id_from_manifest(NSDictionary *manifest)
+{
+    id value = manifest[@"RemoteID"];
+    return [value isKindOfClass:NSNumber.class] ? value : nil;
+}
+
+static BOOL wq_remote_id_in_array(NSNumber *remoteID, NSArray<NSNumber *> *ids)
+{
+    for (NSNumber *candidate in ids) if ([candidate isEqualToNumber:remoteID]) return YES;
+    return NO;
+}
+
+BOOL wq_patch_remote_needs_update(NSDictionary *remoteManifest)
+{
+    NSNumber *remoteID = [remoteManifest[@"id"] isKindOfClass:NSNumber.class] ? remoteManifest[@"id"] : nil;
+    NSString *updatedAt = [remoteManifest[@"updatedAt"] isKindOfClass:NSString.class] ? remoteManifest[@"updatedAt"] : nil;
+    if (!remoteID || !updatedAt.length) return YES;
+    NSArray<NSString *> *names = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:wq_patch_root() error:nil] ?: @[];
+    for (NSString *name in names) {
+        if (![name.pathExtension isEqualToString:@"wqpatch"]) continue;
+        NSDictionary *manifest = wq_patch_manifest([wq_patch_root() stringByAppendingPathComponent:name]);
+        NSNumber *localID = wq_remote_id_from_manifest(manifest ?: @{});
+        NSString *localDate = [manifest[@"RemoteUpdatedAt"] isKindOfClass:NSString.class] ? manifest[@"RemoteUpdatedAt"] : nil;
+        if ([localID isEqualToNumber:remoteID]) return ![localDate isEqualToString:updatedAt];
+    }
+    return YES;
+}
+
+BOOL wq_patch_import_remote(NSDictionary *remoteManifest, NSData *payload, NSString **errorText)
+{
+    NSNumber *remoteID = [remoteManifest[@"id"] isKindOfClass:NSNumber.class] ? remoteManifest[@"id"] : nil;
+    NSString *name = [remoteManifest[@"name"] isKindOfClass:NSString.class] ? remoteManifest[@"name"] : nil;
+    NSString *bundleID = [remoteManifest[@"bundleId"] isKindOfClass:NSString.class] ? remoteManifest[@"bundleId"] : nil;
+    NSString *relative = [remoteManifest[@"relativePath"] isKindOfClass:NSString.class] ? remoteManifest[@"relativePath"] : nil;
+    NSString *updatedAt = [remoteManifest[@"updatedAt"] isKindOfClass:NSString.class] ? remoteManifest[@"updatedAt"] : nil;
+    if (!remoteID || !name.length || !bundleID.length || !wq_patch_relative_valid(relative) || [bundleID containsString:@"/"] || [bundleID containsString:@"\\"] || !payload.length) {
+        if (errorText) *errorText = @"O manifesto remoto foi recusado por validação de segurança.";
+        return NO;
+    }
+    NSString *root = wq_patch_root();
+    if (![[NSFileManager defaultManager] createDirectoryAtPath:root withIntermediateDirectories:YES attributes:nil error:nil]) {
+        if (errorText) *errorText = @"Não foi possível preparar a pasta de patches.";
+        return NO;
+    }
+    NSString *patchPath = nil;
+    NSArray<NSString *> *names = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:root error:nil] ?: @[];
+    for (NSString *fileName in names) {
+        if (![fileName.pathExtension isEqualToString:@"wqpatch"]) continue;
+        NSString *candidate = [root stringByAppendingPathComponent:fileName];
+        NSDictionary *existing = wq_patch_manifest(candidate);
+        if ([wq_remote_id_from_manifest(existing ?: @{}) isEqualToNumber:remoteID]) { patchPath = candidate; break; }
+    }
+    if (!patchPath) {
+        NSString *directoryName = [NSString stringWithFormat:@"Remote-%@-%@.wqpatch", remoteID, wq_patch_safe_name(name)];
+        patchPath = [root stringByAppendingPathComponent:directoryName];
+        if (![[NSFileManager defaultManager] createDirectoryAtPath:patchPath withIntermediateDirectories:NO attributes:nil error:nil]) {
+            if (errorText) *errorText = @"Não foi possível criar o pacote remoto.";
+            return NO;
+        }
+    }
+    NSDictionary *existing = wq_patch_manifest(patchPath);
+    if ([existing[@"Applied"] boolValue] && ![existing[@"RemoteUpdatedAt"] isEqual:updatedAt]) {
+        if (errorText) *errorText = @"O patch remoto está aplicado; restaure-o antes de aceitar uma nova versão.";
+        return NO;
+    }
+    NSString *payloadPath = [patchPath stringByAppendingPathComponent:kPayload];
+    if (![payload writeToFile:payloadPath atomically:YES]) {
+        if (errorText) *errorText = @"Não foi possível salvar o payload remoto.";
+        return NO;
+    }
+    NSDictionary *manifest = @{
+        @"Format": @1,
+        @"Name": wq_patch_safe_name(name),
+        @"BundleID": bundleID,
+        @"RelativePath": relative,
+        @"PayloadHash": wq_patch_hash(payload),
+        @"Applied": @NO,
+        @"CreatedAt": @([NSDate date].timeIntervalSince1970),
+        @"RemoteID": remoteID,
+        @"RemoteUpdatedAt": updatedAt ?: @"",
+        @"RemoteCategory": remoteManifest[@"category"] ?: @"external",
+        @"RemoteVariant": remoteManifest[@"variant"] ?: @"normal",
+        @"Source": @"remote",
+    };
+    if (!wq_patch_save_manifest(manifest, patchPath, errorText)) return NO;
+    return YES;
+}
+
+BOOL wq_patch_prune_remote_not_in(NSArray<NSNumber *> *activeRemoteIDs, NSString **errorText)
+{
+    NSString *firstError = nil;
+    NSString *root = wq_patch_root();
+    NSArray<NSString *> *names = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:root error:nil] ?: @[];
+    for (NSString *name in names) {
+        if (![name.pathExtension isEqualToString:@"wqpatch"]) continue;
+        NSString *path = [root stringByAppendingPathComponent:name];
+        NSDictionary *manifest = wq_patch_manifest(path);
+        NSNumber *remoteID = wq_remote_id_from_manifest(manifest ?: @{});
+        if (!remoteID || wq_remote_id_in_array(remoteID, activeRemoteIDs)) continue;
+        if ([manifest[@"Applied"] boolValue]) {
+            NSString *restoreError = nil;
+            if (!wq_patch_restore(path, &restoreError)) { if (!firstError) firstError = restoreError; continue; }
+        }
+        if (![[NSFileManager defaultManager] removeItemAtPath:path error:nil] && !firstError) firstError = @"Um patch remoto saiu do manifesto, mas não pôde ser removido.";
+    }
+    if (errorText) *errorText = firstError;
+    return firstError == nil;
+}
+
 @interface WQPatchViewController ()
 @property (nonatomic, strong) NSArray<NSString *> *patches;
 @property (nonatomic, copy) NSArray<NSArray<NSString *> *> *menuItems;
@@ -323,6 +433,17 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     ];
     UIBarButtonItem *add = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
     self.navigationItem.rightBarButtonItem = add;
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(remoteManifestDidUpdate:) name:WQRemoteSyncDidUpdateNotification object:nil];
+    [[WQRemoteSync shared] start];
+    [self reloadPatches];
+}
+- (void)dealloc
+{
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+- (void)remoteManifestDidUpdate:(NSNotification *)notification
+{
+    (void)notification;
     [self reloadPatches];
 }
 - (void)reloadPatches

@@ -48,6 +48,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>33</string>
+	<key>WQRemoteManifestURL</key>
+	<string>https://panel.example.invalid/api/v1/manifest</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
