@@ -18,7 +18,7 @@ if [ "$1" = "--sdk" ] && [ "$3" = "--show-sdk-path" ]; then
     printf '%s\n' "$FAKE_SDK"
     exit 0
 fi
-if [ "$1" = "--sdk" ] && [ "$3" = "clang" ]; then
+if [ "$1" = "--sdk" ] && { [ "$3" = "clang" ] || [ "$3" = "swiftc" ]; }; then
     output=
     previous=
     for argument in "$@"; do
