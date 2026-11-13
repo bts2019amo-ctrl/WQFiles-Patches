@@ -10,6 +10,7 @@ private struct WQGameSelectionView: View {
     let onContinue: () -> Void
     @State private var selectedGame: WQGame = .normal
     @State private var pressed = false
+    @AppStorage("WQRemoteTheme.accentColor") private var remoteAccent = "#a3ff12"
 
     var body: some View {
         ZStack {
@@ -20,7 +21,7 @@ private struct WQGameSelectionView: View {
                         Text("SELECIONE SEU JOGO")
                             .font(.system(size: 11, weight: .heavy, design: .rounded))
                             .tracking(1.6)
-                            .foregroundStyle(.white.opacity(0.82))
+                            .foregroundStyle(Color(remoteHex: remoteAccent).opacity(0.82))
                         Text("Escolha a versão instalada")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .tracking(-0.4)
@@ -45,7 +46,7 @@ private struct WQGameSelectionView: View {
                             Spacer()
                             Image(systemName: "gamecontroller.fill")
                                 .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(.white.opacity(0.88))
+                                .foregroundStyle(Color(remoteHex: remoteAccent).opacity(0.88))
                                 .frame(width: 38, height: 38)
                                 .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
@@ -77,7 +78,7 @@ private struct WQGameSelectionView: View {
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 14, weight: .bold))
                         }
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(remoteHex: remoteAccent))
                         .frame(maxWidth: .infinity, minHeight: 54)
                         .background(.white.opacity(0.18), in: RoundedRectangle(cornerRadius: 17, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 17, style: .continuous).stroke(.white.opacity(0.20), lineWidth: 1))

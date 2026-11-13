@@ -12,7 +12,8 @@ struct IOSKeyLoginView: View {
     @State private var clipboardHint: String?
     @State private var vpnAddress: String?
     @State private var vpnDetectionMessage = "O IP detectado é apenas informativo."
-    private let accent = Color(red: 0.70, green: 0.72, blue: 0.74)
+    @AppStorage("WQRemoteTheme.accentColor") private var remoteAccent = "#a3ff12"
+    private var accent: Color { Color(remoteHex: remoteAccent) }
 
     private func checkClipboard() {
         guard let clip = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines),
