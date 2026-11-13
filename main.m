@@ -1794,10 +1794,18 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     UIViewController *entry = [[NSClassFromString(@"WQSwiftEntryViewController") alloc] init];
     WQNavigationController *navigation = [[WQNavigationController alloc] initWithRootViewController:entry];
     __weak WQNavigationController *weakNavigation = navigation;
-    [entry setValue:[^{
+    [entry setValue:[^ {
         WQNavigationController *nav = weakNavigation;
         if (!nav) return;
-        [nav setViewControllers:@[[WQRootViewController new]] animated:YES];
+        UIViewController *selection = [[NSClassFromString(@"WQGameSelectionViewController") alloc] init];
+        [selection setValue:[^{
+            WQNavigationController *innerNav = weakNavigation;
+            if (!innerNav) return;
+            WQRootViewController *root = [WQRootViewController new];
+            [innerNav setViewControllers:@[root] animated:NO];
+            [innerNav pushViewController:[WQPatchViewController new] animated:YES];
+        } copy] forKey:@"onGameSelected"];
+        [nav setViewControllers:@[selection] animated:YES];
     } copy] forKey:@"onAuthenticated"];
     window.rootViewController = navigation;
     [window makeKeyAndVisible];
