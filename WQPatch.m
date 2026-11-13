@@ -240,6 +240,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 
 @interface WQPatchViewController ()
 @property (nonatomic, strong) NSArray<NSString *> *patches;
+@property (nonatomic, copy) NSArray<NSArray<NSString *> *> *menuItems;
 @end
 
 @implementation WQPatchViewController
@@ -251,6 +252,13 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     self.tableView.backgroundColor = UIColor.clearColor;
     self.tableView.backgroundView = nil;
     self.tableView.separatorColor = [UIColor.whiteColor colorWithAlphaComponent:0.12];
+    self.menuItems = @[
+        @[@"Cache", @"archivebox"],
+        @[@"Avatar", @"person.crop.circle"],
+        @[@"Skin", @"paintbrush"],
+        @[@"Holograma", @"cube.transparent"],
+        @[@"EXTERNAL", @"shield.lefthalf.filled"],
+    ];
     UIBarButtonItem *add = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
     self.navigationItem.rightBarButtonItem = add;
     [self reloadPatches];
@@ -265,18 +273,41 @@ BOOL wq_patch_is_applied(NSString *patchPath)
         dispatch_async(dispatch_get_main_queue(), ^{ self.patches = paths; [self.tableView reloadData]; });
     });
 }
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.patches.count; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 2; }
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+{
+    return section == 0 ? self.menuItems.count : self.patches.count;
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
+{
+    return section == 0 ? @"Categorias" : @"Patches";
+}
+
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"patch"] ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"patch"];
-    NSString *path = self.patches[(NSUInteger)indexPath.row]; NSDictionary *m = wq_patch_manifest(path);
-    cell.textLabel.text = m[@"Name"] ?: path.lastPathComponent.stringByDeletingPathExtension;
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"TargetFileName"] ?: m[@"RelativePath"] ?: @"?"];
+    cell.accessoryView = nil;
+    cell.accessoryType = UITableViewCellAccessoryNone;
+    cell.detailTextLabel.text = nil;
+    cell.imageView.image = nil;
     cell.backgroundColor = UIColor.clearColor;
     cell.contentView.backgroundColor = UIColor.clearColor;
     cell.textLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.92];
-    cell.detailTextLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.56];
     cell.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.78];
+    if (indexPath.section == 0) {
+        NSArray<NSString *> *item = self.menuItems[(NSUInteger)indexPath.row];
+        cell.textLabel.text = item[0];
+        cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightMedium];
+        cell.imageView.image = [UIImage systemImageNamed:item[1]];
+        cell.imageView.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.82];
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        return cell;
+    }
+    NSString *path = self.patches[(NSUInteger)indexPath.row]; NSDictionary *m = wq_patch_manifest(path);
+    cell.textLabel.text = m[@"Name"] ?: path.lastPathComponent.stringByDeletingPathExtension;
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"TargetFileName"] ?: m[@"RelativePath"] ?: @"?"];
+    cell.detailTextLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.56];
     UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
     cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.circle.fill" : @"circle"];
     return cell;
@@ -290,10 +321,17 @@ BOOL wq_patch_is_applied(NSString *patchPath)
         dispatch_async(dispatch_get_main_queue(), ^{
             sender.enabled = YES;
             if (!ok) { sender.on = !on; wq_alert(self, on ? @"Patch not applied" : @"Patch not restored", error ?: @"Unknown error"); }
-            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:row inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
+            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:row inSection:1]] withRowAnimation:UITableViewRowAnimationNone];
         });
     });
 }
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    // Category actions will be connected when each patch group is implemented.
+}
+
 - (void)addPatch
 {
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Create Patch" message:@"The target is the file that will be replaced. The replacement is the file whose contents will be applied when the toggle is on." preferredStyle:UIAlertControllerStyleAlert];
