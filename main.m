@@ -1162,12 +1162,14 @@ static NSString *wq_folder_date_text(NSDate *date)
                                               identifier:nil handler:^(UIAction *__unused a) {
                 WQItem *latest = currentItem();
                 if (!latest || !weakSelf) return;
-                UIAlertController *prompt = [UIAlertController alertControllerWithTitle:@"Create Patch" message:@"A patch will store this file's Bundle ID and relative path. The toggle will apply or restore it." preferredStyle:UIAlertControllerStyleAlert];
+                UIAlertController *prompt = [UIAlertController alertControllerWithTitle:@"Create Patch" message:@"This selected file is the target. Enter the full path of the replacement file; its contents will be applied when the toggle is on." preferredStyle:UIAlertControllerStyleAlert];
+                [prompt addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = @"Replacement file path"; field.autocorrectionType = UITextAutocorrectionTypeNo; field.autocapitalizationType = UITextAutocapitalizationTypeNone; }];
                 [prompt addTextFieldWithConfigurationHandler:^(UITextField *field) { field.text = latest.name.stringByDeletingPathExtension; field.autocorrectionType = UITextAutocorrectionTypeNo; }];
                 [prompt addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
                 [prompt addAction:[UIAlertAction actionWithTitle:@"Create" style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused action) {
-                    NSString *name = prompt.textFields.firstObject.text;
-                    dispatch_async(wq_io(), ^{ NSString *error = nil; BOOL ok = wq_patch_create_from_file(latest.path, name, &error); dispatch_async(dispatch_get_main_queue(), ^{ wq_alert(weakSelf, ok ? @"Patch created" : @"Patch not created", ok ? @"Open Tools → Patches to enable or disable it." : (error ?: @"Unknown error")); }); });
+                    NSString *replacement = prompt.textFields[0].text.stringByStandardizingPath;
+                    NSString *name = prompt.textFields[1].text;
+                    dispatch_async(wq_io(), ^{ NSString *error = nil; BOOL ok = wq_patch_create_from_file(latest.path, replacement, name, &error); dispatch_async(dispatch_get_main_queue(), ^{ wq_alert(weakSelf, ok ? @"Patch created" : @"Patch not created", ok ? @"Open Tools → Patches to enable or disable it." : (error ?: @"Unknown error")); }); });
                 }]];
                 [weakSelf presentViewController:prompt animated:YES completion:nil];
             }]];

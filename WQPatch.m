@@ -98,32 +98,42 @@ static NSString *wq_patch_target(NSDictionary *manifest, NSString **errorText)
         if (errorText) *errorText = @"The patch manifest has an invalid Bundle ID or path.";
         return nil;
     }
+    NSString *savedContainer = [manifest[@"ContainerPath"] isKindOfClass:NSString.class] ? [manifest[@"ContainerPath"] stringByStandardizingPath] : nil;
+    if (savedContainer.length) {
+        struct stat st;
+        NSString *savedTarget = [savedContainer stringByAppendingPathComponent:relative];
+        if (wq_stat(savedTarget, &st) && S_ISREG(st.st_mode)) return savedTarget;
+    }
     NSArray *containers = wq_ls_container_paths(nil);
     for (NSString *root in containers) {
-        NSString *found = wq_bundle_id_for_container(root) ?: wq_container_label(root);
-        if ([found isEqualToString:bid]) return [root stringByAppendingPathComponent:relative];
+        NSString *normalizedRoot = root.stringByStandardizingPath;
+        NSString *found = wq_bundle_id_for_container(normalizedRoot) ?: wq_container_label(normalizedRoot);
+        if ([found isEqualToString:bid]) return [normalizedRoot stringByAppendingPathComponent:relative];
     }
     if (errorText) *errorText = [NSString stringWithFormat:@"Could not find the container for %@.", bid];
     return nil;
 }
 
-BOOL wq_patch_create_from_file(NSString *sourcePath, NSString *name, NSString **errorText)
+BOOL wq_patch_create_from_file(NSString *targetPath, NSString *replacementPath, NSString *name, NSString **errorText)
 {
-    sourcePath = sourcePath.stringByStandardizingPath;
-    if ([sourcePath.lastPathComponent isEqualToString:@".com.apple.mobile_container_manager.metadata.plist"]) {
+    targetPath = targetPath.stringByStandardizingPath;
+    replacementPath = replacementPath.stringByStandardizingPath;
+    if ([targetPath.lastPathComponent isEqualToString:@".com.apple.mobile_container_manager.metadata.plist"]) {
         if (errorText) *errorText = @"This is an iOS container metadata file, not app data. Choose a file inside Documents or Library.";
         return NO;
     }
     struct stat st;
-    if (!wq_stat(sourcePath, &st) || !S_ISREG(st.st_mode)) { if (errorText) *errorText = @"Select a regular file inside an app container."; return NO; }
+    if (!wq_stat(targetPath, &st) || !S_ISREG(st.st_mode)) { if (errorText) *errorText = @"The target must be a regular file inside an app container."; return NO; }
+    struct stat replacementStat;
+    if (!wq_stat(replacementPath, &replacementStat) || !S_ISREG(replacementStat.st_mode)) { if (errorText) *errorText = @"The replacement must be an existing regular file."; return NO; }
     NSString *bid = nil;
-    NSString *container = wq_patch_container_for_file(sourcePath, &bid);
+    NSString *container = wq_patch_container_for_file(targetPath, &bid);
     if (!container || !bid.length) { if (errorText) *errorText = @"Could not identify this app container. Open the app's data folder first."; return NO; }
     NSString *prefix = [container stringByAppendingString:@"/"];
-    if (![sourcePath hasPrefix:prefix]) { if (errorText) *errorText = @"The selected file is not inside the identified container."; return NO; }
-    NSString *relative = [sourcePath substringFromIndex:prefix.length];
+    if (![targetPath hasPrefix:prefix]) { if (errorText) *errorText = @"The selected target is not inside the identified container."; return NO; }
+    NSString *relative = [targetPath substringFromIndex:prefix.length];
     if (!wq_patch_relative_valid(relative)) { if (errorText) *errorText = @"The selected path cannot be used in a patch."; return NO; }
-    NSString *safe = wq_patch_safe_name(name.length ? name : sourcePath.lastPathComponent);
+    NSString *safe = wq_patch_safe_name(name.length ? name : targetPath.lastPathComponent);
     NSString *root = wq_patch_root();
     if (![[NSFileManager defaultManager] createDirectoryAtPath:root withIntermediateDirectories:YES attributes:nil error:nil]) { if (errorText) *errorText = @"Could not create the Patches folder."; return NO; }
     NSString *patch = [root stringByAppendingPathComponent:[safe stringByAppendingString:@".wqpatch"]];
@@ -131,17 +141,18 @@ BOOL wq_patch_create_from_file(NSString *sourcePath, NSString *name, NSString **
     if (![[NSFileManager defaultManager] createDirectoryAtPath:patch withIntermediateDirectories:NO attributes:nil error:nil]) { if (errorText) *errorText = @"Could not create the patch folder."; return NO; }
     NSString *payload = [patch stringByAppendingPathComponent:kPayload];
     NSString *copyError = nil;
-    if (!wq_copy_to_local(sourcePath, payload, &copyError)) {
+    if (!wq_copy_to_local(replacementPath, payload, &copyError)) {
         [[NSFileManager defaultManager] removeItemAtPath:patch error:nil];
         if (errorText) *errorText = copyError ?: @"Could not copy the selected file into the patch.";
         return NO;
     }
     NSData *data = [NSData dataWithContentsOfFile:payload];
     NSDictionary *manifest = @{ @"Format": @1, @"Name": safe, @"BundleID": bid,
+                                @"ContainerPath": container,
                                 @"RelativePath": relative, @"PayloadHash": wq_patch_hash(data ?: NSData.data),
                                 @"Applied": @NO, @"CreatedAt": @([NSDate date].timeIntervalSince1970) };
     if (!wq_patch_save_manifest(manifest, patch, errorText)) { [[NSFileManager defaultManager] removeItemAtPath:patch error:nil]; return NO; }
-    wq_log(@"patch created: %@ (%@/%@)", safe, bid, relative);
+    wq_log(@"patch created: %@ (%@/%@) replacement=%@", safe, bid, relative, replacementPath);
     return YES;
 }
 
@@ -246,13 +257,16 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 }
 - (void)addPatch
 {
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Create Patch" message:@"Enter the complete path of an existing file inside an app container, then choose a patch name." preferredStyle:UIAlertControllerStyleAlert];
-    [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"/private/var/mobile/Containers/..."; f.autocorrectionType = UITextAutocorrectionTypeNo; f.autocapitalizationType = UITextAutocapitalizationTypeNone; }];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Create Patch" message:@"The target is the file that will be replaced. The replacement is the file whose contents will be applied when the toggle is on." preferredStyle:UIAlertControllerStyleAlert];
+    [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"Target path in App Data"; f.autocorrectionType = UITextAutocorrectionTypeNo; f.autocapitalizationType = UITextAutocapitalizationTypeNone; }];
+    [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"Replacement file path"; f.autocorrectionType = UITextAutocorrectionTypeNo; f.autocapitalizationType = UITextAutocapitalizationTypeNone; }];
     [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"Patch name"; }];
     [a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
     [a addAction:[UIAlertAction actionWithTitle:@"Create" style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused action) {
-        NSString *source = a.textFields[0].text.stringByStandardizingPath; NSString *name = a.textFields[1].text;
-        dispatch_async(wq_io(), ^{ NSString *error = nil; BOOL ok = wq_patch_create_from_file(source, name, &error); dispatch_async(dispatch_get_main_queue(), ^{ if (!ok) wq_alert(self, @"Patch not created", error ?: @"Unknown error"); else [self reloadPatches]; }); });
+        NSString *target = a.textFields[0].text.stringByStandardizingPath;
+        NSString *replacement = a.textFields[1].text.stringByStandardizingPath;
+        NSString *name = a.textFields[2].text;
+        dispatch_async(wq_io(), ^{ NSString *error = nil; BOOL ok = wq_patch_create_from_file(target, replacement, name, &error); dispatch_async(dispatch_get_main_queue(), ^{ if (!ok) wq_alert(self, @"Patch not created", error ?: @"Unknown error"); else [self reloadPatches]; }); });
     }]];
     [self presentViewController:a animated:YES completion:nil];
 }
