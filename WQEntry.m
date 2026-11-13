@@ -10,6 +10,8 @@
 
 @interface WQCalculatorViewController ()
 @property (nonatomic, strong) UILabel *display;
+@property (nonatomic, strong) UILabel *modeLabel;
+@property (nonatomic, strong) NSMutableArray<NSString *> *history;
 @property (nonatomic) double storedValue;
 @property (nonatomic) NSInteger operation;
 @property (nonatomic) BOOL waitingForInput;
@@ -23,6 +25,7 @@
     [super viewDidLoad];
     self.view.backgroundColor = UIColor.blackColor;
     self.currentInput = @"0";
+    self.history = [NSMutableArray new];
     [self buildCalculator];
 }
 
@@ -41,7 +44,24 @@
     [history setImage:[UIImage systemImageNamed:@"clock"] forState:UIControlStateNormal];
     history.tintColor = [UIColor colorWithWhite:1 alpha:0.82];
     history.accessibilityLabel = @"History";
+    [history addTarget:self action:@selector(showHistory) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:history];
+
+    UIButton *mode = [UIButton buttonWithType:UIButtonTypeSystem];
+    mode.translatesAutoresizingMaskIntoConstraints = NO;
+    [mode setImage:[UIImage systemImageNamed:@"function"] forState:UIControlStateNormal];
+    mode.tintColor = [UIColor colorWithWhite:1 alpha:0.82];
+    mode.accessibilityLabel = @"Calculator modes";
+    [mode addTarget:self action:@selector(showModeMenu) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:mode];
+
+    self.modeLabel = [UILabel new];
+    self.modeLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    self.modeLabel.text = @"BÁSICA";
+    self.modeLabel.font = [UIFont systemFontOfSize:10 weight:UIFontWeightBold];
+    self.modeLabel.textColor = [UIColor colorWithWhite:1 alpha:0.48];
+    self.modeLabel.textAlignment = NSTextAlignmentCenter;
+    [self.view addSubview:self.modeLabel];
 
     self.display = [UILabel new];
     self.display.translatesAutoresizingMaskIntoConstraints = NO;
@@ -105,6 +125,9 @@
         [brand.topAnchor constraintEqualToAnchor:safe.topAnchor constant:10], [brand.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
         [history.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:18], [history.topAnchor constraintEqualToAnchor:brand.bottomAnchor constant:18],
         [history.widthAnchor constraintEqualToConstant:42], [history.heightAnchor constraintEqualToConstant:42],
+        [mode.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-18], [mode.topAnchor constraintEqualToAnchor:brand.bottomAnchor constant:18],
+        [mode.widthAnchor constraintEqualToConstant:42], [mode.heightAnchor constraintEqualToConstant:42],
+        [self.modeLabel.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor], [self.modeLabel.centerYAnchor constraintEqualToAnchor:mode.centerYAnchor],
         [self.display.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:28], [self.display.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-28],
         [self.display.topAnchor constraintEqualToAnchor:history.bottomAnchor constant:18], [self.display.heightAnchor constraintEqualToConstant:86],
         [keypad.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor constant:14], [keypad.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor constant:-14],
@@ -117,6 +140,65 @@
 - (void)continueTapped
 {
     if (self.onContinue) self.onContinue();
+}
+
+- (void)showHistory
+{
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Histórico" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    if (!self.history.count) alert.message = @"Nenhum cálculo salvo ainda.";
+    for (NSString *entry in self.history) [alert addAction:[UIAlertAction actionWithTitle:entry style:UIAlertActionStyleDefault handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Limpar histórico" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) { [self.history removeAllObjects]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)showModeMenu
+{
+    UIAlertController *menu = [UIAlertController alertControllerWithTitle:@"Modo da calculadora" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+    [menu addAction:[UIAlertAction actionWithTitle:@"Básica" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { self.modeLabel.text = @"BÁSICA"; }]];
+    [menu addAction:[UIAlertAction actionWithTitle:@"Científica" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { self.modeLabel.text = @"CIENTÍFICA"; [self scientificPrompt]; }]];
+    [menu addAction:[UIAlertAction actionWithTitle:@"Conversão BRL ↔ EUR" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { self.modeLabel.text = @"CONVERSÃO"; [self conversionPrompt]; }]];
+    [menu addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:menu animated:YES completion:nil];
+}
+
+- (void)scientificPrompt
+{
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Científica" message:@"Digite um número e escolha a operação." preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = @"Número"; field.keyboardType = UIKeyboardTypeDecimalPad; }];
+    NSArray *operations = @[@"√x", @"x²", @"sen", @"cos", @"tg", @"ln"];
+    for (NSString *operation in operations) {
+        [alert addAction:[UIAlertAction actionWithTitle:operation style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+            double value = alert.textFields.firstObject.text.doubleValue, result = 0;
+            if ([operation isEqualToString:@"√x"]) result = value >= 0 ? sqrt(value) : 0;
+            else if ([operation isEqualToString:@"x²"]) result = pow(value, 2);
+            else if ([operation isEqualToString:@"sen"]) result = sin(value);
+            else if ([operation isEqualToString:@"cos"]) result = cos(value);
+            else if ([operation isEqualToString:@"tg"]) result = tan(value);
+            else result = value > 0 ? log(value) : 0;
+            self.currentInput = [self formatted:result]; self.display.text = [self.currentInput stringByReplacingOccurrencesOfString:@"." withString:@","];
+            [self.history insertObject:[NSString stringWithFormat:@"%@(%g) = %@", operation, value, self.display.text] atIndex:0];
+        }]];
+    }
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)conversionPrompt
+{
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Conversão BRL ↔ EUR" message:@"Taxa demonstrativa: 1 EUR = R$ 6,00" preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = @"Valor"; field.keyboardType = UIKeyboardTypeDecimalPad; }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"BRL → EUR" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { [self convertValue:alert.textFields.firstObject.text.doubleValue divisor:6.0 label:@"BRL → EUR"]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"EUR → BRL" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { [self convertValue:alert.textFields.firstObject.text.doubleValue divisor:1.0 label:@"EUR → BRL"]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)convertValue:(double)value divisor:(double)divisor label:(NSString *)label
+{
+    double result = [label hasPrefix:@"BRL"] ? value / divisor : value * 6.0;
+    self.currentInput = [self formatted:result]; self.display.text = [self.currentInput stringByReplacingOccurrencesOfString:@"." withString:@","];
+    [self.history insertObject:[NSString stringWithFormat:@"%@ = %@", label, self.display.text] atIndex:0];
 }
 
 - (void)keyPressed:(UIButton *)sender
@@ -137,7 +219,10 @@
 {
     double rhs = self.currentInput.doubleValue, result = self.storedValue;
     switch (self.operation) { case 1: result = rhs == 0 ? 0 : self.storedValue / rhs; break; case 2: result = self.storedValue * rhs; break; case 3: result = self.storedValue - rhs; break; case 4: result = self.storedValue + rhs; break; default: return; }
+    NSString *before = self.currentInput;
     self.currentInput = [self formatted:result]; self.waitingForInput = YES; self.operation = 0;
+    [self.history insertObject:[NSString stringWithFormat:@"%@ = %@", before, self.currentInput] atIndex:0];
+    if (self.history.count > 20) [self.history removeLastObject];
 }
 
 - (NSString *)formatted:(double)value
