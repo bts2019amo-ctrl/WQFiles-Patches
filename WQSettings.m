@@ -69,11 +69,11 @@
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
 {
-    if (section == 0) return @"Compatibilidade";
-    if (section == 1) return @"Informações do dispositivo";
+    if (section == 0) return WQLocalized(@"compatibility", @"Compatibilidade");
+    if (section == 1) return WQLocalized(@"deviceInfo", @"Informações do dispositivo");
     if (section == 2) return [NSString stringWithFormat:@"%@ · %@", WQLocalized(@"brand", @"EXTERNAL SYSTEM"), WQLocalized(@"settings", @"Informações")];
-    if (section == 3) return @"Categorias de patches";
-    return @"Aparência e partículas";
+    if (section == 3) return WQLocalized(@"patchCategories", @"Categorias de patches");
+    return WQLocalized(@"appearanceHeader", @"Aparência e partículas");
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section
@@ -138,9 +138,9 @@
     } else {
         NSArray *appearanceRows = @[
             @[WQLocalized(@"language", @"Idioma"), WQLanguageName(WQCurrentLanguageCode()), @"globe"],
-            @[@"Cor do aplicativo", [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQAccentColorName().capitalizedString], @"paintpalette.fill"],
-            @[@"Modelo de partículas", [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQParticleStyleName().capitalizedString], @"sparkles"],
-            @[@"Modo de aparência", [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQAppearanceModeName().capitalizedString], @"moon.stars.fill"]
+            @[WQLocalized(@"appColor", @"Cor do aplicativo"), [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQAccentColorName().capitalizedString], @"paintpalette.fill"],
+            @[WQLocalized(@"particleModel", @"Modelo de partículas"), [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQParticleStyleName().capitalizedString], @"sparkles"],
+            @[WQLocalized(@"appearanceMode", @"Modo de aparência"), [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQAppearanceModeName().capitalizedString], @"moon.stars.fill"]
         ];
         NSArray *appearance = appearanceRows[(NSUInteger)indexPath.row];
         content.text = appearance[0];

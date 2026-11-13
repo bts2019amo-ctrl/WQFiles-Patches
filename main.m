@@ -1651,6 +1651,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
         }
     });
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(wq_themeDidChange:) name:WQAccentColorDidChangeNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(wq_themeDidChange:) name:WQLanguageDidChangeNotification object:nil];
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -1663,6 +1664,8 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 - (void)wq_themeDidChange:(NSNotification *)note
 {
     (void)note;
+    self.title = WQLocalized(@"brand", @"EXTERNAL SYSTEM");
+    self.tableView.tableFooterView = [self authorFooter];
     self.navigationController.navigationBar.tintColor = WQAccentColor();
     [self.tableView reloadData];
 }
@@ -1733,7 +1736,8 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section
 {
-    return @"Aplicação e restauração seguras de arquivos locais. Use o botão de configurações no canto superior direito.";
+    // Compatibilidade com a regressão: return @"Aplicação e restauração seguras de arquivos locais.
+    return WQLocalized(@"rootFooter", @"Aplicação e restauração seguras de arquivos locais. Use o botão de configurações no canto superior direito.");
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -1745,8 +1749,9 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     c.secondaryTextProperties.numberOfLines = 0;
     c.textProperties.font = [UIFont systemFontOfSize:17.0 weight:UIFontWeightSemibold];
     c.secondaryTextProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
-    c.text = @"Patches";
-    c.secondaryText = @"Aplicar e restaurar patches locais com segurança";
+    // Compatibilidade com a regressão: c.text = @"Patches";
+    c.text = WQLocalized(@"patches", @"Patches");
+    c.secondaryText = WQLocalized(@"patchesDesc", @"Aplicar e restaurar patches locais com segurança");
     c.image = WQProfessionalIcon(@"wand.and.stars", WQAccentColor(), CGSizeMake(50, 50));
     cell.contentConfiguration = c;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
