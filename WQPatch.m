@@ -251,7 +251,10 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
     self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
-    self.tableView.rowHeight = 74.0;
+    self.tableView.rowHeight = UITableViewAutomaticDimension;
+    self.tableView.estimatedRowHeight = 82.0;
+    self.tableView.sectionFooterHeight = UITableViewAutomaticDimension;
+    self.tableView.estimatedSectionFooterHeight = 60.0;
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"gearshape.fill"] style:UIBarButtonItemStylePlain target:self action:@selector(openSettings)];
     UIBarButtonItem *add = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
     self.navigationItem.rightBarButtonItem = add;
@@ -282,8 +285,10 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     NSString *path = self.patches[(NSUInteger)indexPath.row]; NSDictionary *m = wq_patch_manifest(path);
     cell.textLabel.text = m[@"Name"] ?: path.lastPathComponent.stringByDeletingPathExtension;
     cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
+    cell.textLabel.numberOfLines = 0;
     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"TargetFileName"] ?: m[@"RelativePath"] ?: @"?"];
     cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    cell.detailTextLabel.numberOfLines = 0;
     UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; toggle.onTintColor = UIColor.systemBlueColor; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
     cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.seal.fill" : @"wand.and.stars"] ?: [UIImage systemImageNamed:@"square.stack.3d.up.fill"];
     cell.imageView.tintColor = toggle.on ? UIColor.systemGreenColor : UIColor.systemBlueColor;

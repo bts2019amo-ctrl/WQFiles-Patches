@@ -1619,6 +1619,11 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 {
     [super viewDidLoad];
     self.navigationController.navigationBar.prefersLargeTitles = YES;
+    self.tableView.rowHeight = UITableViewAutomaticDimension;
+    self.tableView.estimatedRowHeight = 72.0;
+    self.tableView.sectionHeaderHeight = UITableViewAutomaticDimension;
+    self.tableView.sectionFooterHeight = UITableViewAutomaticDimension;
+    self.tableView.estimatedSectionFooterHeight = 72.0;
     self.tableView.tableFooterView = [self authorFooter];
     dispatch_async(wq_io(), ^{
         NSString *recovery = wq_recover_interrupted_restore();
@@ -1706,6 +1711,10 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"r"]
         ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"r"];
     UIListContentConfiguration *c = cell.defaultContentConfiguration;
+    c.textProperties.numberOfLines = 0;
+    c.secondaryTextProperties.numberOfLines = 0;
+    c.textProperties.font = [UIFont systemFontOfSize:17.0 weight:UIFontWeightSemibold];
+    c.secondaryTextProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
     c.text = @"Patches";
     c.secondaryText = @"Aplicar e restaurar patches locais com segurança";
     c.image = [UIImage systemImageNamed:@"wand.and.stars"] ?: [UIImage systemImageNamed:@"square.stack.3d.up.fill"];

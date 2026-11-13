@@ -26,7 +26,11 @@
     self.view.backgroundColor = UIColor.systemGroupedBackgroundColor;
     self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
-    self.tableView.rowHeight = 54.0;
+    self.tableView.rowHeight = UITableViewAutomaticDimension;
+    self.tableView.estimatedRowHeight = 64.0;
+    self.tableView.sectionHeaderHeight = UITableViewAutomaticDimension;
+    self.tableView.sectionFooterHeight = UITableViewAutomaticDimension;
+    self.tableView.estimatedSectionFooterHeight = 72.0;
     self.deviceModel = UIDevice.currentDevice.model ?: @"iPhone/iPad";
     self.systemVersion = UIDevice.currentDevice.systemVersion ?: @"Desconhecido";
     self.appVersion = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"0.7.7";
@@ -70,6 +74,10 @@
     cell.accessoryType = UITableViewCellAccessoryNone;
     cell.selectionStyle = UITableViewCellSelectionStyleNone;
     UIListContentConfiguration *content = [cell defaultContentConfiguration];
+    content.textProperties.numberOfLines = 0;
+    content.secondaryTextProperties.numberOfLines = 0;
+    content.textProperties.adjustsFontSizeToFitWidth = NO;
+    content.secondaryTextProperties.adjustsFontSizeToFitWidth = NO;
     content.textProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     content.secondaryTextProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
     content.imageProperties.tintColor = UIColor.systemBlueColor;
