@@ -24,6 +24,7 @@
 #import "WQPlistEditorSupport.h"
 #import "WQHexViewer.h"
 #import "WQPatch.h"
+#import "WQSettings.h"
 static BOOL wq_looks_like_uuid(NSString *name)
 {
     return name.length == 36 && [[NSUUID alloc] initWithUUIDString:name] != nil;
@@ -1336,7 +1337,7 @@ static NSString *wq_folder_date_text(NSDate *date)
                 BOOL ok = wq_patch_create_from_file(target, replacement, name, &error);
                 [NSFileManager.defaultManager removeItemAtPath:replacement error:nil];
                 dispatch_async(dispatch_get_main_queue(), ^{
-                    wq_alert(self, ok ? @"Patch created" : @"Patch not created", ok ? @"Open Tools → Patches and turn the toggle on to replace the target." : (error ?: @"Unknown error"));
+                    wq_alert(self, ok ? @"Patch created" : @"Patch not created", ok ? @"Abra Patches e ative o toggle para substituir o arquivo-alvo." : (error ?: @"Unknown error"));
                 });
             });
         }]];
@@ -1683,26 +1684,21 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     return footer;
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 2; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 1; }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    // System Groups is the extra last row, on iOS 27 only.
-    return section == 0 ? (NSInteger)_locations.count + (wq_system_areas_reachable() ? 1 : 0) : 7;
+    return 1;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
 {
-    return section == 0 ? @"Containers" : @"Tools";
+    return @"WQ FILES";
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section
 {
-    if (section == 0 && !wq_system_areas_reachable())
-        return @"On iOS 26, System Data and System Groups can't be reached (worse_query covers them on iOS 27 only), and Internal Daemons need a scan of every file id: the first one can take most of an hour on a well-used device, later ones only check new files.";
-    return section == 1
-        ? @"Overwritten and deleted files are copied to Backups first (also visible in the Files app). Long-press a backup to restore it."
-        : nil;
+    return @"Aplicação e restauração seguras de arquivos locais. Abra Configurações dentro de Patches para ver a compatibilidade do iOS.";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -1710,21 +1706,10 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"r"]
         ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"r"];
     UIListContentConfiguration *c = cell.defaultContentConfiguration;
-    if (indexPath.section == 0) {
-        if ((NSUInteger)indexPath.row < _locations.count) {
-            NSArray *loc = _locations[(NSUInteger)indexPath.row];
-            c.text = loc[0];
-            c.image = [UIImage systemImageNamed:loc[2]];
-        } else {
-            c.text = @"System Groups";
-            c.image = [UIImage systemImageNamed:@"lock.square.stack"];
-        }
-    } else {
-        NSArray *tools = @[@[@"Apps", @"square.grid.3x3"], @[@"Cache Cleaner", @"trash"], @[@"Patches", @"switch.2"], @[@"Go to Path…", @"arrow.right.circle"],
-                           @[@"App Backups", @"clock.arrow.circlepath"], @[@"Backups", @"clock.arrow.circlepath"], @[@"Log", @"doc.plaintext"]];
-        c.text = tools[(NSUInteger)indexPath.row][0];
-        c.image = [UIImage systemImageNamed:tools[(NSUInteger)indexPath.row][1]];
-    }
+    c.text = @"Patches";
+    c.secondaryText = @"Aplicar e restaurar patches locais com segurança";
+    c.image = [UIImage systemImageNamed:@"wand.and.stars"] ?: [UIImage systemImageNamed:@"square.stack.3d.up.fill"];
+    c.imageProperties.tintColor = UIColor.systemBlueColor;
     cell.contentConfiguration = c;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
@@ -1734,32 +1719,8 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     UIViewController *next = nil;
-    if (indexPath.section == 0) {
-        if ((NSUInteger)indexPath.row < _locations.count) {
-            NSArray *loc = _locations[(NSUInteger)indexPath.row];
-            next = [[WQDirViewController alloc] initWithPath:loc[1] title:loc[0]];
-        } else {
-            next = [WQSystemGroupsViewController new];
-        }
-    } else if (indexPath.row == 0) {
-        next = [WQAppsViewController new];
-    } else if (indexPath.row == 1) {
-        next = [WQCacheCleanerViewController new];
-    } else if (indexPath.row == 2) {
-        [NSFileManager.defaultManager createDirectoryAtPath:wq_patch_root() withIntermediateDirectories:YES attributes:nil error:nil];
-        next = [WQPatchViewController new];
-    } else if (indexPath.row == 3) {
-        [self goToPath];
-        return;
-    } else if (indexPath.row == 4) {
-        [NSFileManager.defaultManager createDirectoryAtPath:wq_app_backup_root() withIntermediateDirectories:YES attributes:nil error:nil];
-        next = [[WQDirViewController alloc] initWithPath:wq_app_backup_root() title:@"App Backups"];
-    } else if (indexPath.row == 5) {
-        [NSFileManager.defaultManager createDirectoryAtPath:wq_backup_root() withIntermediateDirectories:YES attributes:nil error:nil];
-        next = [[WQDirViewController alloc] initWithPath:wq_backup_root() title:@"Backups"];
-    } else {
-        next = [WQLogViewController new];
-    }
+    [NSFileManager.defaultManager createDirectoryAtPath:wq_patch_root() withIntermediateDirectories:YES attributes:nil error:nil];
+    next = [WQPatchViewController new];
     [self.navigationController pushViewController:next animated:YES];
 }
 

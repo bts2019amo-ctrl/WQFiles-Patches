@@ -6,6 +6,7 @@
 #import "WQAccess.h"
 #import "WQLaunchServices.h"
 #import "WQUI.h"
+#import "WQSettings.h"
 #import <CommonCrypto/CommonDigest.h>
 
 static NSString *const kManifest = @"manifest.plist";
@@ -247,9 +248,18 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 {
     [super viewDidLoad];
     self.title = @"Patches";
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
+    self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    self.tableView.rowHeight = 74.0;
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"gearshape.fill"] style:UIBarButtonItemStylePlain target:self action:@selector(openSettings)];
     UIBarButtonItem *add = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
     self.navigationItem.rightBarButtonItem = add;
     [self reloadPatches];
+}
+- (void)openSettings
+{
+    [self.navigationController pushViewController:[WQSettingsViewController new] animated:YES];
 }
 - (void)reloadPatches
 {
@@ -265,11 +275,18 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"patch"] ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"patch"];
+    cell.backgroundColor = UIColor.secondarySystemGroupedBackgroundColor;
+    cell.layer.cornerRadius = 16.0;
+    cell.layer.masksToBounds = YES;
+    cell.layoutMargins = UIEdgeInsetsMake(0, 16, 0, 16);
     NSString *path = self.patches[(NSUInteger)indexPath.row]; NSDictionary *m = wq_patch_manifest(path);
     cell.textLabel.text = m[@"Name"] ?: path.lastPathComponent.stringByDeletingPathExtension;
+    cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"TargetFileName"] ?: m[@"RelativePath"] ?: @"?"];
-    UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
-    cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.circle.fill" : @"circle"];
+    cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
+    UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; toggle.onTintColor = UIColor.systemBlueColor; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
+    cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.seal.fill" : @"wand.and.stars"] ?: [UIImage systemImageNamed:@"square.stack.3d.up.fill"];
+    cell.imageView.tintColor = toggle.on ? UIColor.systemGreenColor : UIColor.systemBlueColor;
     return cell;
 }
 - (void)togglePatch:(UISwitch *)sender

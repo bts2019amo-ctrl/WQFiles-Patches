@@ -125,6 +125,10 @@ This fork adds a native patch system independent of 3105. Create a patch from a 
 
 The custom package format is `.wqpatch`; it is not a `.3105` package and does not depend on 3105.
 
+## Interface
+
+The 0.8 redesign keeps the main screen focused on Patches only. Other tools remain out of the visible navigation, while the Patches screen provides a professional iOS-style icon and a Settings button. Settings reports the current iOS version, minimum supported version (iOS 26.0), device model, architecture, app version, and local patch status.
+
 ## Install with AltStore or SideStore
 
 Add this source to get WQ Files and its updates:
