@@ -125,12 +125,6 @@ This fork adds a native patch system independent of 3105. Create a patch from a 
 
 The custom package format is `.wqpatch`; it is not a `.3105` package and does not depend on 3105.
 
-## Remote Sync / WQ Patch Hub
-
-The Patches screen connects to the bundled public WQ Patch Hub automatically. There is no URL field, Remote menu, or token prompt. On the hub, enter the exact relative path inside App Data; later openings synchronize silently, download only enabled patches, verify the SHA-256 declared by the hub, and store each result as a normal `.wqpatch` in the local catalog.
-
-Remote patches use the same local toggle safety path as local patches: the original file is saved before the first apply, the Bundle ID and relative path identify the target, and turning the toggle off restores the saved original. If a remote version changes while the patch is applied, WQ Files refuses the update until the toggle is turned off.
-
 ## Install with AltStore or SideStore
 
 Add this source to get WQ Files and its updates:

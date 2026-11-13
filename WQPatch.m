@@ -3,7 +3,6 @@
 // GPL-3.0-or-later.
 //
 #import "WQPatch.h"
-#import "WQRemotePatch.h"
 #import "WQAccess.h"
 #import "WQLaunchServices.h"
 #import "WQUI.h"
@@ -241,7 +240,6 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 
 @interface WQPatchViewController ()
 @property (nonatomic, strong) NSArray<NSString *> *patches;
-@property (nonatomic) BOOL remoteSyncStarted;
 @end
 
 @implementation WQPatchViewController
@@ -252,14 +250,6 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     UIBarButtonItem *add = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
     self.navigationItem.rightBarButtonItem = add;
     [self reloadPatches];
-}
-- (void)viewDidAppear:(BOOL)animated
-{
-    [super viewDidAppear:animated];
-    if (self.remoteSyncStarted) return;
-    self.remoteSyncStarted = YES;
-    __weak WQPatchViewController *weakSelf = self;
-    wq_remote_sync_for_view(self, ^{ [weakSelf reloadPatches]; });
 }
 - (void)reloadPatches
 {
