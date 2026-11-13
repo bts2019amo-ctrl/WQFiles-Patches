@@ -109,6 +109,11 @@ static NSString *wq_patch_target(NSDictionary *manifest, NSString **errorText)
 
 BOOL wq_patch_create_from_file(NSString *sourcePath, NSString *name, NSString **errorText)
 {
+    sourcePath = sourcePath.stringByStandardizingPath;
+    if ([sourcePath.lastPathComponent isEqualToString:@".com.apple.mobile_container_manager.metadata.plist"]) {
+        if (errorText) *errorText = @"This is an iOS container metadata file, not app data. Choose a file inside Documents or Library.";
+        return NO;
+    }
     struct stat st;
     if (!wq_stat(sourcePath, &st) || !S_ISREG(st.st_mode)) { if (errorText) *errorText = @"Select a regular file inside an app container."; return NO; }
     NSString *bid = nil;
