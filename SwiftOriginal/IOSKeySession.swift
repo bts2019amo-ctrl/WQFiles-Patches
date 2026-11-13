@@ -42,24 +42,6 @@ final class IOSKeySession: ObservableObject {
     init() {
         storedKey = Self.readKeychain()
         Self.enforceInstallationIdentity()
-        monitorTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 2_500_000_000)
-                guard !Task.isCancelled else { return }
-                if AD_isTampered() != 0 {
-                    log("integrity: periodic runtime tamper")
-                    await MainActor.run {
-                        self?.logout()
-                        self?.errorMessage = "Ambiente comprometido detectado."
-                    }
-                    try? await Task.sleep(nanoseconds: 250_000_000)
-                    AD_killProcess()
-                    return
-                }
-                await MainActor.run { Self.enforceInstallationIdentity() }
-                await self?.refresh()
-            }
-        }
     }
 
     deinit { monitorTask?.cancel() }
@@ -67,7 +49,6 @@ final class IOSKeySession: ObservableObject {
     func passCalculatorGate() {
         guard !didPassCalculatorGate else { return }
         didPassCalculatorGate = true
-        if storedKey != nil { Task { await refresh() } }
     }
 
     func submit(_ rawKey: String) {
@@ -114,7 +95,10 @@ final class IOSKeySession: ObservableObject {
             let input: [String: Any] = ["json": ["key": key, "deviceId": try Self.deviceIdentifier()]]
             let data = try JSONSerialization.data(withJSONObject: input)
             components.queryItems = [URLQueryItem(name: "input", value: String(data: data, encoding: .utf8))]
-            let (responseData, response) = try await URLSession.shared.data(from: components.url!)
+            var request = URLRequest(url: components.url!)
+            request.timeoutInterval = 15
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+            let (responseData, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
             let envelope = try JSONDecoder().decode(IOSKeyResponseEnvelope.self, from: responseData)
             let result = envelope.result.data.json
