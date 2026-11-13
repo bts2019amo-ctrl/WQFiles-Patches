@@ -29,10 +29,6 @@ struct CalculadoraIPhoneView: View {
 
             GeometryReader { geometry in
                 VStack(spacing: 0) {
-                    topBar
-                        .padding(.horizontal, 18)
-                        .padding(.top, 4)
-
                     Spacer(minLength: mode == .basic ? 32 : 18)
 
                     if mode == .conversion {
@@ -57,6 +53,12 @@ struct CalculadoraIPhoneView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
+
+            topBar
+                .padding(.horizontal, 18)
+                .padding(.top, 4)
+                .frame(maxWidth: .infinity, alignment: .top)
+                .zIndex(3)
 
             if showModeMenu {
                 Color.clear
