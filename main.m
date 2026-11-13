@@ -27,6 +27,7 @@
 #import "WQSettings.h"
 #import "WQGateHostController.h"
 #import "WQTheme.h"
+#import "WQParticleView.h"
 static BOOL wq_looks_like_uuid(NSString *name)
 {
     return name.length == 36 && [[NSUUID alloc] initWithUUIDString:name] != nil;
@@ -1543,6 +1544,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 // Adds a Home button next to Back on screens two or more levels deep. Editors
 // guard Back, Home and the interactive edge swipe through WQUnsavedEditing.
 @interface WQNavigationController : UINavigationController <UINavigationControllerDelegate, UIGestureRecognizerDelegate>
+@property(nonatomic, strong) WQParticleView *particleView;
 @end
 
 @implementation WQNavigationController
@@ -1552,6 +1554,9 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     [super viewDidLoad];
     self.delegate = self;
     self.interactivePopGestureRecognizer.delegate = self;
+    self.particleView = [[WQParticleView alloc] initWithFrame:self.view.bounds];
+    self.particleView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.view addSubview:self.particleView];
 }
 
 - (void)navigationController:(UINavigationController *)nav willShowViewController:(UIViewController *)vc animated:(BOOL)animated

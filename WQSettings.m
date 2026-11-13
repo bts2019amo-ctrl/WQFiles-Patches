@@ -1,5 +1,6 @@
 #import "WQSettings.h"
 #import "WQTheme.h"
+#import "WQParticleView.h"
 #import <sys/utsname.h>
 
 @interface WQSettingsViewController ()
@@ -62,7 +63,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return section == 0 ? 3 : (section == 1 ? 4 : (section == 2 ? 4 : (section == 3 ? 3 : 1)));
+    return section == 0 ? 3 : (section == 1 ? 4 : (section == 2 ? 4 : (section == 3 ? 3 : 3)));
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
@@ -71,14 +72,14 @@
     if (section == 1) return @"Informações do dispositivo";
     if (section == 2) return @"Sobre o WQ Files";
     if (section == 3) return @"Categorias de patches";
-    return @"Aparência";
+    return @"Aparência e partículas";
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section
 {
     if (section == 0) return @"Compatibilidade validada para iOS 26.0 até iOS 27.2 estável. Recursos de acesso a dados podem variar conforme o sistema e o dispositivo.";
     if (section == 2) return @"Interface redesenhada no estilo iOS 26, mantendo o aplicativo focado em patches locais.";
-    if (section == 4) return @"A cor escolhida é salva neste dispositivo e será usada no login, na escolha do jogo e no WQ Files. A calculadora não é alterada.";
+    if (section == 4) return @"Escolha a cor, o modelo de partículas e o modo de aparência. As partículas ficam ativas em loop em todo o app, exceto na calculadora.";
     return nil;
 }
 
@@ -134,9 +135,15 @@
         NSArray *row = rows[(NSUInteger)indexPath.row];
         content.text = row[0]; content.secondaryText = row[1]; content.image = [UIImage systemImageNamed:row[2]];
     } else {
-        content.text = @"Cor do aplicativo";
-        content.secondaryText = [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQAccentColorName().capitalizedString];
-        content.image = [UIImage systemImageNamed:@"paintpalette.fill"];
+        NSArray *appearanceRows = @[
+            @[@"Cor do aplicativo", [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQAccentColorName().capitalizedString], @"paintpalette.fill"],
+            @[@"Modelo de partículas", [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQParticleStyleName().capitalizedString], @"sparkles"],
+            @[@"Modo de aparência", [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQAppearanceModeName().capitalizedString], @"moon.stars.fill"]
+        ];
+        NSArray *appearance = appearanceRows[(NSUInteger)indexPath.row];
+        content.text = appearance[0];
+        content.secondaryText = appearance[1];
+        content.image = [UIImage systemImageNamed:appearance[2]];
         content.imageProperties.tintColor = WQAccentColor();
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
         cell.selectionStyle = UITableViewCellSelectionStyleDefault;
@@ -149,6 +156,26 @@
 {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     if (indexPath.section == 4) {
+        if (indexPath.row == 1) {
+            NSDictionary *labels = @{@"constellation": @"Constelação", @"embers": @"Brasas", @"snow": @"Neve", @"orbit": @"Órbita"};
+            UIAlertController *picker = [UIAlertController alertControllerWithTitle:@"Modelo de partículas" message:@"Escolha o movimento do fundo animado" preferredStyle:UIAlertControllerStyleActionSheet];
+            for (NSString *name in WQParticleStyleNames()) [picker addAction:[UIAlertAction actionWithTitle:labels[name] ?: name.capitalizedString style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) { WQSetParticleStyleName(name); [self.tableView reloadData]; }]];
+            [picker addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+            picker.popoverPresentationController.sourceView = self.tableView;
+            picker.popoverPresentationController.sourceRect = [self.tableView rectForRowAtIndexPath:indexPath];
+            [self presentViewController:picker animated:YES completion:nil];
+            return;
+        }
+        if (indexPath.row == 2) {
+            NSDictionary *labels = @{@"dark": @"Escuro", @"light": @"Claro", @"auto": @"Automático"};
+            UIAlertController *picker = [UIAlertController alertControllerWithTitle:@"Modo de aparência" message:@"O fundo de partículas permanece discreto e animado" preferredStyle:UIAlertControllerStyleActionSheet];
+            for (NSString *name in @[ @"dark", @"light", @"auto" ]) [picker addAction:[UIAlertAction actionWithTitle:labels[name] style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) { WQSetAppearanceModeName(name); [self.tableView reloadData]; }]];
+            [picker addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+            picker.popoverPresentationController.sourceView = self.tableView;
+            picker.popoverPresentationController.sourceRect = [self.tableView rectForRowAtIndexPath:indexPath];
+            [self presentViewController:picker animated:YES completion:nil];
+            return;
+        }
         NSArray<NSString *> *names = WQAccentColorNames();
         UIAlertController *picker = [UIAlertController alertControllerWithTitle:@"Cor do aplicativo" message:@"Escolha uma cor para o WQ Files" preferredStyle:UIAlertControllerStyleActionSheet];
         NSDictionary<NSString *, NSString *> *labels = @{@"blue": @"Azul", @"purple": @"Roxo", @"teal": @"Turquesa", @"orange": @"Laranja", @"pink": @"Rosa", @"mint": @"Menta", @"indigo": @"Índigo", @"red": @"Vermelho", @"yellow": @"Amarelo"};

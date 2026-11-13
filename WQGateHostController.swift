@@ -108,6 +108,28 @@ private final class WQKeySession: ObservableObject {
     }
 }
 
+private struct WQSwiftParticleBackground: View {
+    private let points: [(CGFloat, CGFloat)] = (0..<34).map { i in
+        (CGFloat((i * 37) % 100) / 100.0, CGFloat((i * 61 + 13) % 100) / 100.0)
+    }
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            Canvas { context, size in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+                let light = UserDefaults.standard.string(forKey: "WQAppearanceMode") == "light"
+                let color = (light ? Color.black : Color.white).opacity(0.15)
+                for (index, point) in points.enumerated() {
+                    let y = ((point.1 * size.height) + CGFloat(t.truncatingRemainder(dividingBy: 18.0)) * CGFloat(2 + index % 3)).truncatingRemainder(dividingBy: size.height)
+                    let radius: CGFloat = UserDefaults.standard.string(forKey: "WQParticleStyleName") == "embers" ? 2.2 : 1.5
+                    context.fill(Path(ellipseIn: CGRect(x: point.0 * size.width - radius, y: y - radius, width: radius * 2, height: radius * 2)), with: .color(color))
+                }
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
 private struct WQLoginView: View {
     @ObservedObject var session: WQKeySession
     @State private var key = ""
@@ -128,6 +150,7 @@ private struct WQLoginView: View {
     var body: some View {
         ZStack {
             LinearGradient(colors: [.black, Color(red: 0.08, green: 0.09, blue: 0.12)], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
+            WQSwiftParticleBackground()
             VStack(spacing: 22) {
                 Spacer()
                 Image(systemName: "lock.shield.fill").font(.system(size: 62)).foregroundStyle(.white)
@@ -170,6 +193,7 @@ private struct WQGameSelectionView: View {
     var body: some View {
         ZStack {
             Color(.systemGroupedBackground).ignoresSafeArea()
+            WQSwiftParticleBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     Text("SELECIONE SEU JOGO").font(.system(size: 12, weight: .heavy, design: .rounded)).tracking(1.5).foregroundStyle(accent)
