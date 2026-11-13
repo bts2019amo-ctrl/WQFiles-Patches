@@ -151,7 +151,7 @@
     if (indexPath.section == 4) {
         NSArray<NSString *> *names = WQAccentColorNames();
         UIAlertController *picker = [UIAlertController alertControllerWithTitle:@"Cor do aplicativo" message:@"Escolha uma cor para o WQ Files" preferredStyle:UIAlertControllerStyleActionSheet];
-        NSDictionary<NSString *, NSString *> *labels = @{@"blue": @"Azul", @"purple": @"Roxo", @"teal": @"Turquesa", @"orange": @"Laranja", @"pink": @"Rosa"};
+        NSDictionary<NSString *, NSString *> *labels = @{@"blue": @"Azul", @"purple": @"Roxo", @"teal": @"Turquesa", @"orange": @"Laranja", @"pink": @"Rosa", @"mint": @"Menta", @"indigo": @"Índigo", @"red": @"Vermelho", @"yellow": @"Amarelo"};
         for (NSString *name in names) {
             [picker addAction:[UIAlertAction actionWithTitle:labels[name] ?: name.capitalizedString style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
                 WQSetAccentColorName(name);

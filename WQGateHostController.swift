@@ -118,6 +118,10 @@ private struct WQLoginView: View {
         case "teal": return .teal
         case "orange": return .orange
         case "pink": return .pink
+        case "mint": return .mint
+        case "indigo": return .indigo
+        case "red": return .red
+        case "yellow": return .yellow
         default: return .blue
         }
     }
@@ -156,6 +160,10 @@ private struct WQGameSelectionView: View {
         case "teal": return .teal
         case "orange": return .orange
         case "pink": return .pink
+        case "mint": return .mint
+        case "indigo": return .indigo
+        case "red": return .red
+        case "yellow": return .yellow
         default: return .blue
         }
     }

@@ -14,6 +14,15 @@ static NSString *const kManifest = @"manifest.plist";
 static NSString *const kPayload = @"Payload.bin";
 static NSString *const kOriginal = @"Original.bin";
 
+static BOOL wq_patch_matches_selected_game(NSString *bundleID)
+{
+    NSString *bundle = bundleID.lowercaseString;
+    BOOL maxGame = [[[NSUserDefaults standardUserDefaults] stringForKey:@"WQSelectedGame"] isEqualToString:@"free_fire_max"];
+    BOOL isMaxBundle = [bundle containsString:@"freefiremax"] || [bundle containsString:@"free_fire_max"];
+    BOOL isNormalBundle = [bundle containsString:@"freefireth"] || ([bundle containsString:@"freefire"] && !isMaxBundle);
+    return maxGame ? isMaxBundle : isNormalBundle;
+}
+
 static NSString *wq_patch_safe_name(NSString *name)
 {
     NSMutableString *s = [name mutableCopy];
@@ -288,7 +297,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
             NSString *path = [wq_patch_root() stringByAppendingPathComponent:n];
             NSDictionary *manifest = wq_patch_manifest(path);
             NSString *category = manifest[@"Category"] ?: @"External";
-            if ([category isEqualToString:self.category]) [paths addObject:path];
+            if ([category isEqualToString:self.category] && wq_patch_matches_selected_game(manifest[@"BundleID"])) [paths addObject:path];
         }
         [paths sortUsingComparator:^NSComparisonResult(NSString *a, NSString *b) { return [a.lastPathComponent localizedCaseInsensitiveCompare:b.lastPathComponent]; }];
         dispatch_async(dispatch_get_main_queue(), ^{ self.patches = paths; [self.tableView reloadData]; });
@@ -436,6 +445,7 @@ void wq_remote_sync(UIViewController *host, void (^completion)(NSString *message
                 NSNumber *remoteID = item[@"id"];
                 NSString *name = item[@"name"], *category = item[@"category"], *bundleID = item[@"bundleId"], *relative = item[@"relativePath"], *fileName = item[@"fileName"], *downloadPath = item[@"downloadPath"];
                 if (![remoteID isKindOfClass:NSNumber.class] || !name.length || !bundleID.length || (!relative.length && !fileName.length) || !fileName.length || !downloadPath.length) continue;
+                if (!wq_patch_matches_selected_game(bundleID)) continue;
                 [remoteIDs addObject:remoteID.stringValue];
                 NSURL *payloadURL = [NSURL URLWithString:[NSString stringWithFormat:@"https://patchhub-58az32uq.manus.space%@", downloadPath]];
                 if (!payloadURL) continue;
@@ -467,7 +477,7 @@ void wq_remote_sync(UIViewController *host, void (^completion)(NSString *message
                 NSString *path = [rootPath stringByAppendingPathComponent:n];
                 NSDictionary *manifest = wq_patch_manifest(path);
                 NSString *remoteID = [manifest[@"RemoteID"] description];
-                if (remoteID.length && ![remoteIDs containsObject:remoteID]) {
+                if (remoteID.length && wq_patch_matches_selected_game(manifest[@"BundleID"]) && ![remoteIDs containsObject:remoteID]) {
                     if ([manifest[@"Applied"] boolValue]) { NSString *restoreError = nil; if (!wq_patch_restore(path, &restoreError)) continue; }
                     [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
                 }

@@ -11,12 +11,16 @@ static NSDictionary<NSString *, UIColor *> *WQAccentPalette(void)
         @"teal": UIColor.systemTealColor,
         @"orange": UIColor.systemOrangeColor,
         @"pink": UIColor.systemPinkColor,
+        @"mint": UIColor.systemMintColor,
+        @"indigo": UIColor.systemIndigoColor,
+        @"red": UIColor.systemRedColor,
+        @"yellow": UIColor.systemYellowColor,
     };
 }
 
 NSArray<NSString *> *WQAccentColorNames(void)
 {
-    return @[@"blue", @"purple", @"teal", @"orange", @"pink"];
+    return @[@"blue", @"purple", @"teal", @"orange", @"pink", @"mint", @"indigo", @"red", @"yellow"];
 }
 
 NSString *WQAccentColorName(void)
