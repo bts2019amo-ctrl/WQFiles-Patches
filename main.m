@@ -1741,8 +1741,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     c.secondaryTextProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
     c.text = @"Patches";
     c.secondaryText = @"Aplicar e restaurar patches locais com segurança";
-    c.image = [UIImage systemImageNamed:@"wand.and.stars"] ?: [UIImage systemImageNamed:@"square.stack.3d.up.fill"];
-    c.imageProperties.tintColor = WQAccentColor();
+    c.image = WQProfessionalIcon(@"square.stack.3d.up.fill", WQAccentColor(), CGSizeMake(50, 50));
     cell.contentConfiguration = c;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;

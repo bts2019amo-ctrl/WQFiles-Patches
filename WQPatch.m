@@ -319,7 +319,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
     cell.detailTextLabel.numberOfLines = 0;
     UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; toggle.onTintColor = WQAccentColor(); [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
-    cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.seal.fill" : @"wand.and.stars"] ?: [UIImage systemImageNamed:@"square.stack.3d.up.fill"];
+    cell.imageView.image = WQProfessionalIcon(toggle.on ? @"checkmark.seal.fill" : @"wand.and.stars", WQAccentColor(), CGSizeMake(46, 46));
     cell.imageView.tintColor = toggle.on ? UIColor.systemGreenColor : WQAccentColor();
     return cell;
 }
@@ -409,7 +409,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     NSArray *row = self.categories[(NSUInteger)indexPath.row];
     cell.textLabel.text = row[0]; cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold]; cell.textLabel.numberOfLines = 0;
     cell.detailTextLabel.text = row[1]; cell.detailTextLabel.textColor = UIColor.secondaryLabelColor; cell.detailTextLabel.numberOfLines = 0;
-    cell.imageView.image = [UIImage systemImageNamed:row[2]]; cell.imageView.tintColor = WQAccentColor();
+    cell.imageView.image = WQProfessionalIcon(row[2], WQAccentColor(), CGSizeMake(46, 46));
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
 }
