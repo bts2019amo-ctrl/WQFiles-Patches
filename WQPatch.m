@@ -19,7 +19,7 @@ static NSString *wq_patch_safe_name(NSString *name)
     [s replaceOccurrencesOfString:@"\\" withString:@"-" options:0 range:NSMakeRange(0, s.length)];
     NSCharacterSet *bad = [[NSCharacterSet alphanumericCharacterSet] invertedSet];
     NSArray *parts = [s componentsSeparatedByCharactersInSet:bad];
-    NSArray *nonEmpty = [parts filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *p, NSDictionary *__) { return p.length > 0; }]];
+    NSArray *nonEmpty = [parts filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *p, NSDictionary *unused) { (void)unused; return p.length > 0; }]];
     NSString *joined = [nonEmpty componentsJoinedByString:@"-"];
     return joined.length ? [joined substringToIndex:MIN(joined.length, 80)] : @"Patch";
 }
@@ -164,7 +164,7 @@ BOOL wq_patch_apply(NSString *patchPath, NSString **errorText)
         return YES;
     }
     NSString *patchOriginal = [patchPath stringByAppendingPathComponent:kOriginal];
-    if (![current writeToFile:patchOriginal options:NSDataWritingAtomic]) { if (errorText) *errorText = @"Could not save the original file inside the patch."; return NO; }
+    if (![current writeToFile:patchOriginal atomically:YES]) { if (errorText) *errorText = @"Could not save the original file inside the patch."; return NO; }
     if (!wq_write(target, payload, errorText)) { [[NSFileManager defaultManager] removeItemAtPath:patchOriginal error:nil]; return NO; }
     if (!wq_patch_set_state(patchPath, YES, wq_patch_hash(current), errorText)) return NO;
     wq_log(@"patch applied: %@ -> %@", m[@"Name"] ?: patchPath.lastPathComponent, target);
