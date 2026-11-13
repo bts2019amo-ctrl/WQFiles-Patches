@@ -22,18 +22,26 @@ static BOOL wq_remote_valid_filename(NSString *filename)
         ![filename isEqualToString:@".com.apple.mobile_container_manager.metadata.plist"];
 }
 
+static BOOL wq_remote_valid_relative_path(NSString *path)
+{
+    if (!path.length || [path hasPrefix:@"/"] || [path containsString:@"\\"]) return NO;
+    for (NSString *part in [path componentsSeparatedByString:@"/"]) if (!part.length || [part isEqualToString:@"."] || [part isEqualToString:@".."]) return NO;
+    return ![path.lastPathComponent isEqualToString:@".com.apple.mobile_container_manager.metadata.plist"];
+}
+
 static BOOL wq_remote_store(NSDictionary *remote, NSData *payload, NSString **errorText)
 {
     NSNumber *remoteId = remote[@"id"];
     NSString *name = remote[@"name"];
     NSString *bundleId = remote[@"bundleId"];
+    NSString *relativePath = remote[@"relativePath"];
     NSString *targetFileName = remote[@"targetFileName"] ?: remote[@"fileName"];
     NSString *expectedHash = remote[@"sha256"];
     NSNumber *version = remote[@"version"];
     if (![remoteId isKindOfClass:NSNumber.class] || ![name isKindOfClass:NSString.class] ||
-        ![bundleId isKindOfClass:NSString.class] || ![targetFileName isKindOfClass:NSString.class] ||
+        ![bundleId isKindOfClass:NSString.class] || ![relativePath isKindOfClass:NSString.class] || ![targetFileName isKindOfClass:NSString.class] ||
         ![expectedHash isKindOfClass:NSString.class] || ![version isKindOfClass:NSNumber.class] ||
-        [bundleId rangeOfString:@"."].location == NSNotFound || !wq_remote_valid_filename(targetFileName)) {
+        [bundleId rangeOfString:@"."].location == NSNotFound || (!wq_remote_valid_relative_path(relativePath) && !wq_remote_valid_filename(targetFileName))) {
         if (errorText) *errorText = @"O catálogo remoto contém um alvo inválido.";
         return NO;
     }
@@ -64,19 +72,19 @@ static BOOL wq_remote_store(NSDictionary *remote, NSData *payload, NSString **er
         return NO;
     }
     [files removeItemAtPath:[patchPath stringByAppendingPathComponent:@"Original.bin"] error:nil];
-    NSDictionary *manifest = @{
+    NSMutableDictionary *manifest = [@{
         @"Format": @1,
         @"Name": name,
         @"BundleID": bundleId,
-        @"RelativePath": @"",
-        @"TargetFileName": targetFileName,
+        @"RelativePath": relativePath ?: @"",
         @"PayloadHash": actualHash,
         @"Version": version,
         @"RemoteID": remoteId,
         @"Remote": @YES,
         @"Applied": @NO,
         @"CreatedAt": @([NSDate date].timeIntervalSince1970)
-    };
+    } mutableCopy];
+    if (!wq_remote_valid_relative_path(relativePath)) manifest[@"TargetFileName"] = targetFileName;
     if (![manifest writeToFile:oldManifestPath atomically:YES]) {
         if (errorText) *errorText = @"Não foi possível salvar o manifesto remoto.";
         return NO;
