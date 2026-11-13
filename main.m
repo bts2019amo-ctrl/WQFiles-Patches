@@ -1162,11 +1162,12 @@ static NSString *wq_folder_date_text(NSDate *date)
             [actions addObject:[UIAction actionWithTitle:@"Create Patch from File" image:[UIImage systemImageNamed:@"switch.2"]
                                               identifier:nil handler:^(UIAction *__unused a) {
                 WQItem *latest = currentItem();
-                if (!latest || !weakSelf) return;
-                weakSelf->_patchTargetPath = [latest.path copy];
+                WQDirViewController *strongSelf = weakSelf;
+                if (!latest || !strongSelf) return;
+                strongSelf->_patchTargetPath = [latest.path copy];
                 UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:@[UTTypeItem] asCopy:YES];
-                picker.delegate = weakSelf;
-                [weakSelf presentViewController:picker animated:YES completion:nil];
+                picker.delegate = strongSelf;
+                [strongSelf presentViewController:picker animated:YES completion:nil];
             }]];
         }
         if (!current.isDir && current.isRegular) {
