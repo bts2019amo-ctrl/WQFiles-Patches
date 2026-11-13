@@ -91,7 +91,7 @@ static BOOL wq_remote_store(NSDictionary *remote, NSData *payload, NSString **er
         return NO;
     }
     NSString *payloadPath = [patchPath stringByAppendingPathComponent:@"Payload.bin"];
-    if (![payload writeToFile:payloadPath options:NSDataWritingAtomic]) {
+    if (![payload writeToFile:payloadPath atomically:YES]) {
         if (errorText) *errorText = @"Não foi possível salvar o payload remoto.";
         return NO;
     }
