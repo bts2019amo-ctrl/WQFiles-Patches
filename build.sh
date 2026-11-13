@@ -81,7 +81,9 @@ else
 fi
 cp Info.plist "$APP/Info.plist"
 cp icons/AppIcon*@*.png "$APP/"
-cp icons/ExternalSystemLogin.png "$APP/"
+if [[ -f icons/ExternalSystemLogin.png ]]; then
+    cp icons/ExternalSystemLogin.png "$APP/"
+fi
 if [[ -f icons/FreeFireNormal.jpg && -f icons/FreeFireMax.jpg ]]; then
     cp icons/FreeFireNormal.jpg icons/FreeFireMax.jpg "$APP/"
 fi
