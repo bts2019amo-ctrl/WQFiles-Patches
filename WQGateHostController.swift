@@ -109,9 +109,12 @@ private final class WQKeySession: ObservableObject {
 }
 
 private struct WQSwiftParticleBackground: View {
-    private let points: [(CGFloat, CGFloat)] = (0..<34).map { i in
-        (CGFloat((i * 37) % 100) / 100.0, CGFloat((i * 61 + 13) % 100) / 100.0)
-    }
+    private let points: [(CGFloat, CGFloat)] = [
+        (0.03, 0.13), (0.17, 0.74), (0.31, 0.42), (0.46, 0.88), (0.62, 0.22), (0.79, 0.61),
+        (0.91, 0.35), (0.11, 0.28), (0.25, 0.96), (0.39, 0.57), (0.54, 0.08), (0.68, 0.77),
+        (0.84, 0.48), (0.97, 0.91), (0.07, 0.52), (0.21, 0.19), (0.36, 0.69), (0.50, 0.34),
+        (0.65, 0.93), (0.73, 0.14), (0.88, 0.82), (0.14, 0.87), (0.44, 0.16), (0.57, 0.54)
+    ]
     var body: some View {
         TimelineView(.animation) { timeline in
             Canvas { context, size in
