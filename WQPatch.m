@@ -353,8 +353,6 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 }
 @end
 
-@interface WQPatchViewController : UITableViewController
-@end
 @implementation WQPatchViewController {
     UILabel *_categoryLabel;
     UILabel *_countLabel;
@@ -385,7 +383,13 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     keyButton.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.82];
     keyButton.backgroundColor = [UIColor.whiteColor colorWithAlphaComponent:0.09];
     keyButton.layer.cornerRadius = 8;
-    keyButton.contentEdgeInsets = UIEdgeInsetsMake(7, 9, 7, 9);
+    UIButtonConfiguration *keyConfiguration = [UIButtonConfiguration plainButtonConfiguration];
+    keyConfiguration.title = @"TROCAR KEY";
+    keyConfiguration.image = [UIImage systemImageNamed:@"key.fill"];
+    keyConfiguration.imagePadding = 4;
+    keyConfiguration.baseForegroundColor = [UIColor.whiteColor colorWithAlphaComponent:0.82];
+    keyConfiguration.contentInsets = NSDirectionalEdgeInsetsMake(7, 9, 7, 9);
+    keyButton.configuration = keyConfiguration;
     [keyButton addTarget:self action:@selector(changeKey) forControlEvents:UIControlEventTouchUpInside];
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:keyButton];
     _categoryLabel = [UILabel new]; _categoryLabel.translatesAutoresizingMaskIntoConstraints = NO; _categoryLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBold]; _categoryLabel.textColor = UIColor.whiteColor; _categoryLabel.text = @"PATCHES DE AVATAR";
