@@ -1814,20 +1814,14 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options
 {
     UIWindow *window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
-    WQNavigationController *navigation = [[WQNavigationController alloc] initWithRootViewController:[WQCalculatorViewController new]];
-    WQCalculatorViewController *calculator = (WQCalculatorViewController *)navigation.viewControllers.firstObject;
+    UIViewController *entry = [[NSClassFromString(@"WQSwiftEntryViewController") alloc] init];
+    WQNavigationController *navigation = [[WQNavigationController alloc] initWithRootViewController:entry];
     __weak WQNavigationController *weakNavigation = navigation;
-    calculator.onContinue = ^{
+    [entry setValue:[^{
         WQNavigationController *nav = weakNavigation;
         if (!nav) return;
-        WQLoginViewController *login = [WQLoginViewController new];
-        login.onAuthenticated = ^{
-            WQNavigationController *current = weakNavigation;
-            if (!current) return;
-            [current setViewControllers:@[[WQRootViewController new]] animated:YES];
-        };
-        [nav setViewControllers:@[login] animated:YES];
-    };
+        [nav setViewControllers:@[[WQRootViewController new]] animated:YES];
+    } copy] forKey:@"onAuthenticated"];
     window.rootViewController = navigation;
     [window makeKeyAndVisible];
     self.window = window;
