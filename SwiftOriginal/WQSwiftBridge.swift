@@ -24,25 +24,29 @@ private struct WQOriginalEntryView: View {
 private struct WQDeferredLoginView: View {
     let onAuthenticated: () -> Void
     @State private var session: IOSKeySession?
+    @State private var didNotifyAuthentication = false
 
     var body: some View {
         Group {
             if let session {
                 IOSKeyLoginView(session: session)
+                    // Observe the object's Published value, not the optional reference.
+                    .onReceive(session.$isAuthenticated.removeDuplicates()) { authenticated in
+                        guard authenticated, !didNotifyAuthentication else { return }
+                        didNotifyAuthentication = true
+                        onAuthenticated()
+                    }
             } else {
                 ProgressView()
             }
         }
-            .onAppear {
-                // The key session is created only when this login screen is visible.
-                guard session == nil else { return }
-                let created = IOSKeySession()
-                created.passCalculatorGate()
-                session = created
-            }
-            .onChange(of: session?.isAuthenticated) { authenticated in
-                if authenticated == true { onAuthenticated() }
-            }
+        .onAppear {
+            // The session is created only after the calculator has been released.
+            guard session == nil else { return }
+            let created = IOSKeySession()
+            created.passCalculatorGate()
+            session = created
+        }
     }
 }
 
