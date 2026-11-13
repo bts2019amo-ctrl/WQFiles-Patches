@@ -55,6 +55,7 @@ UIImage *WQProfessionalIcon(NSString *symbolName, UIColor *color, CGSize size)
     if (!symbol) return nil;
     UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size];
     return [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+        (void)context;
         CGRect rect = (CGRect){CGPointZero, size};
         UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(rect, 1, 1) cornerRadius:MIN(size.width, size.height) * 0.24];
         [color setFill];
