@@ -24,6 +24,7 @@
 #import "WQPlistEditorSupport.h"
 #import "WQHexViewer.h"
 #import "WQPatch.h"
+#import "WQEntry.h"
 static BOOL wq_looks_like_uuid(NSString *name)
 {
     return name.length == 36 && [[NSUUID alloc] initWithUUIDString:name] != nil;
@@ -1813,7 +1814,21 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options
 {
     UIWindow *window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
-    window.rootViewController = [[WQNavigationController alloc] initWithRootViewController:[WQRootViewController new]];
+    WQNavigationController *navigation = [[WQNavigationController alloc] initWithRootViewController:[WQCalculatorViewController new]];
+    WQCalculatorViewController *calculator = (WQCalculatorViewController *)navigation.viewControllers.firstObject;
+    __weak WQNavigationController *weakNavigation = navigation;
+    calculator.onContinue = ^{
+        WQNavigationController *nav = weakNavigation;
+        if (!nav) return;
+        WQLoginViewController *login = [WQLoginViewController new];
+        login.onAuthenticated = ^{
+            WQNavigationController *current = weakNavigation;
+            if (!current) return;
+            [current setViewControllers:@[[WQRootViewController new]] animated:YES];
+        };
+        [nav setViewControllers:@[login] animated:YES];
+    };
+    window.rootViewController = navigation;
     [window makeKeyAndVisible];
     self.window = window;
 }
