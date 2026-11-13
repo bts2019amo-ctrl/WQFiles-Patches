@@ -241,6 +241,68 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 @interface WQPatchViewController ()
 @property (nonatomic, strong) NSArray<NSString *> *patches;
 @property (nonatomic, copy) NSArray<NSArray<NSString *> *> *menuItems;
+@property (nonatomic) BOOL menuExpanded;
+@end
+
+@interface WQPatchCategoryViewController : UIViewController
+- (instancetype)initWithTitle:(NSString *)title symbol:(NSString *)symbol;
+@end
+
+@implementation WQPatchCategoryViewController {
+    NSString *_categoryTitle;
+    NSString *_categorySymbol;
+}
+
+- (instancetype)initWithTitle:(NSString *)title symbol:(NSString *)symbol
+{
+    if ((self = [super initWithNibName:nil bundle:nil])) {
+        _categoryTitle = [title copy];
+        _categorySymbol = [symbol copy];
+    }
+    return self;
+}
+
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    self.title = _categoryTitle;
+    self.view.backgroundColor = UIColor.clearColor;
+
+    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:_categorySymbol]];
+    icon.translatesAutoresizingMaskIntoConstraints = NO;
+    icon.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.86];
+    icon.contentMode = UIViewContentModeScaleAspectFit;
+    icon.preferredSymbolConfiguration = [UIImageSymbolConfiguration configurationWithPointSize:42 weight:UIImageSymbolWeightMedium];
+
+    UILabel *title = [UILabel new];
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    title.text = _categoryTitle;
+    title.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.94];
+    title.font = [UIFont systemFontOfSize:24 weight:UIFontWeightSemibold];
+    title.textAlignment = NSTextAlignmentCenter;
+
+    UILabel *subtitle = [UILabel new];
+    subtitle.translatesAutoresizingMaskIntoConstraints = NO;
+    subtitle.text = @"Área preparada para receber os patches.";
+    subtitle.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.56];
+    subtitle.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
+    subtitle.textAlignment = NSTextAlignmentCenter;
+
+    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[icon, title, subtitle]];
+    stack.translatesAutoresizingMaskIntoConstraints = NO;
+    stack.axis = UILayoutConstraintAxisVertical;
+    stack.alignment = UIStackViewAlignmentCenter;
+    stack.spacing = 14;
+    [self.view addSubview:stack];
+    [NSLayoutConstraint activateConstraints:@[
+        [icon.widthAnchor constraintEqualToConstant:58],
+        [icon.heightAnchor constraintEqualToConstant:58],
+        [stack.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [stack.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor constant:-30],
+        [stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.view.leadingAnchor constant:24],
+        [stack.trailingAnchor constraintLessThanOrEqualToAnchor:self.view.trailingAnchor constant:-24],
+    ]];
+}
 @end
 
 @implementation WQPatchViewController
@@ -276,7 +338,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 2; }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return section == 0 ? self.menuItems.count : self.patches.count;
+    return section == 0 ? (self.menuExpanded ? self.menuItems.count + 1 : 1) : self.patches.count;
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
@@ -296,7 +358,15 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     cell.textLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.92];
     cell.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.78];
     if (indexPath.section == 0) {
-        NSArray<NSString *> *item = self.menuItems[(NSUInteger)indexPath.row];
+        if (indexPath.row == 0) {
+            cell.textLabel.text = @"Menu";
+            cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
+            cell.imageView.image = [UIImage systemImageNamed:@"line.3.horizontal.decrease.circle"];
+            cell.imageView.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.86];
+            cell.accessoryType = self.menuExpanded ? UITableViewCellAccessoryDetailDisclosureButton : UITableViewCellAccessoryDisclosureIndicator;
+            return cell;
+        }
+        NSArray<NSString *> *item = self.menuItems[(NSUInteger)indexPath.row - 1];
         cell.textLabel.text = item[0];
         cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightMedium];
         cell.imageView.image = [UIImage systemImageNamed:item[1]];
@@ -329,7 +399,14 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    // Category actions will be connected when each patch group is implemented.
+    if (indexPath.section != 0) return;
+    if (indexPath.row == 0) {
+        self.menuExpanded = !self.menuExpanded;
+        [tableView reloadSections:[NSIndexSet indexSetWithIndex:0] withRowAnimation:UITableViewRowAnimationFade];
+        return;
+    }
+    NSArray<NSString *> *item = self.menuItems[(NSUInteger)indexPath.row - 1];
+    [self.navigationController pushViewController:[[WQPatchCategoryViewController alloc] initWithTitle:item[0] symbol:item[1]] animated:YES];
 }
 
 - (void)addPatch
