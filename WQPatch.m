@@ -95,7 +95,36 @@ static NSString *wq_patch_target(NSDictionary *manifest, NSString **errorText)
 {
     NSString *bid = manifest[@"BundleID"];
     NSString *relative = manifest[@"RelativePath"];
-    if (![bid isKindOfClass:NSString.class] || !bid.length || !wq_patch_relative_valid(relative)) {
+    NSString *targetFileName = manifest[@"TargetFileName"];
+    if (![bid isKindOfClass:NSString.class] || !bid.length) {
+        if (errorText) *errorText = @"The patch manifest has an invalid Bundle ID or path.";
+        return nil;
+    }
+    if ([targetFileName isKindOfClass:NSString.class] && targetFileName.length) {
+        NSMutableArray<NSString *> *matches = [NSMutableArray array];
+        for (NSString *root in wq_ls_container_paths(nil)) {
+            NSString *normalizedRoot = root.stringByStandardizingPath;
+            NSString *found = wq_bundle_id_for_container(normalizedRoot) ?: wq_container_label(normalizedRoot);
+            if (![found isEqualToString:bid]) continue;
+            NSMutableArray<NSString *> *pending = [NSMutableArray arrayWithObject:normalizedRoot];
+            NSUInteger visited = 0;
+            while (pending.count && visited++ < 10000) {
+                NSString *directory = pending.firstObject;
+                [pending removeObjectAtIndex:0];
+                for (NSString *child in wq_list(directory, nil) ?: @[]) {
+                    struct stat st;
+                    if (!wq_stat(child, &st)) continue;
+                    if (S_ISREG(st.st_mode) && [child.lastPathComponent isEqualToString:targetFileName]) [matches addObject:child];
+                    else if (S_ISDIR(st.st_mode)) [pending addObject:child];
+                }
+            }
+        }
+        if (matches.count == 1) return matches.firstObject;
+        if (matches.count > 1) { if (errorText) *errorText = [NSString stringWithFormat:@"Mais de um arquivo %@ foi encontrado no app; o patch foi recusado por segurança.", targetFileName]; return nil; }
+        if (errorText) *errorText = [NSString stringWithFormat:@"Não foi encontrado nenhum arquivo %@ no Bundle ID %@.", targetFileName, bid];
+        return nil;
+    }
+    if (!wq_patch_relative_valid(relative)) {
         if (errorText) *errorText = @"The patch manifest has an invalid Bundle ID or path.";
         return nil;
     }
@@ -212,6 +241,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 
 @interface WQPatchViewController ()
 @property (nonatomic, strong) NSArray<NSString *> *patches;
+@property (nonatomic) BOOL remoteSyncStarted;
 @end
 
 @implementation WQPatchViewController
@@ -220,9 +250,16 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     [super viewDidLoad];
     self.title = @"Patches";
     UIBarButtonItem *add = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
-    UIBarButtonItem *remote = [[UIBarButtonItem alloc] initWithTitle:@"Remote" style:UIBarButtonItemStylePlain target:self action:@selector(openRemoteSync)];
-    self.navigationItem.rightBarButtonItems = @[add, remote];
+    self.navigationItem.rightBarButtonItem = add;
     [self reloadPatches];
+}
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+    if (self.remoteSyncStarted) return;
+    self.remoteSyncStarted = YES;
+    __weak WQPatchViewController *weakSelf = self;
+    wq_remote_sync_for_view(self, ^{ [weakSelf reloadPatches]; });
 }
 - (void)reloadPatches
 {
@@ -240,7 +277,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"patch"] ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"patch"];
     NSString *path = self.patches[(NSUInteger)indexPath.row]; NSDictionary *m = wq_patch_manifest(path);
     cell.textLabel.text = m[@"Name"] ?: path.lastPathComponent.stringByDeletingPathExtension;
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"RelativePath"] ?: @"?"];
+    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"TargetFileName"] ?: m[@"RelativePath"] ?: @"?"];
     UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
     cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.circle.fill" : @"circle"];
     return cell;
@@ -257,11 +294,6 @@ BOOL wq_patch_is_applied(NSString *patchPath)
             [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:row inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
         });
     });
-}
-- (void)openRemoteSync
-{
-    __weak WQPatchViewController *weakSelf = self;
-    wq_remote_present_sync(self, ^{ [weakSelf reloadPatches]; });
 }
 - (void)addPatch
 {

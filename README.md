@@ -127,7 +127,7 @@ The custom package format is `.wqpatch`; it is not a `.3105` package and does no
 
 ## Remote Sync / WQ Patch Hub
 
-The **Remote** button in **Tools → Patches** connects WQ Files to a WQ Patch Hub instance. In the Manus-hosted panel, create a sync token, then paste the published hub URL and token into WQ Files. The app authenticates every catalog and payload request, downloads only enabled patches, verifies the SHA-256 declared by the hub, and stores the result as a normal `.wqpatch` in the local catalog.
+The Patches screen connects to the bundled WQ Patch Hub automatically. In the Manus-hosted panel, create a sync token and paste it once when WQ Files asks; the hub URL is already built into the app, so there is no URL field or Remote menu. Later openings synchronize silently, download only enabled patches, verify the SHA-256 declared by the hub, and store each result as a normal `.wqpatch` in the local catalog.
 
 Remote patches use the same local toggle safety path as local patches: the original file is saved before the first apply, the Bundle ID and relative path identify the target, and turning the toggle off restores the saved original. If a remote version changes while the patch is applied, WQ Files refuses the update until the toggle is turned off.
 

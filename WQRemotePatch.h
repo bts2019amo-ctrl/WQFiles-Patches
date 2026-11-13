@@ -2,7 +2,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-/// Opens the remote catalog settings and downloads enabled patches into the local patch catalog.
-void wq_remote_present_sync(UIViewController *presenter, dispatch_block_t _Nullable completion);
+/// Uses the built-in WQ Patch Hub URL, asks for the token once if needed, and syncs silently afterward.
+void wq_remote_sync_for_view(UIViewController *presenter, dispatch_block_t _Nullable completion);
 
 NS_ASSUME_NONNULL_END

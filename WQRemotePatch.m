@@ -1,10 +1,11 @@
 #import "WQRemotePatch.h"
 #import "WQPatch.h"
 #import "WQAccess.h"
+#import "WQUI.h"
 #import <CommonCrypto/CommonDigest.h>
 
-static NSString * const kRemoteBaseURLKey = @"WQRemotePatchBaseURL";
 static NSString * const kRemoteTokenKey = @"WQRemotePatchToken";
+static NSString * const kRemoteHubURL = @"https://patchhub-58az32uq.manus.space";
 
 static NSString *wq_remote_sha256(NSData *data)
 {
@@ -15,45 +16,16 @@ static NSString *wq_remote_sha256(NSData *data)
     return hex;
 }
 
-static NSString *wq_remote_safe_name(NSString *name)
-{
-    NSMutableString *safe = [NSMutableString string];
-    NSCharacterSet *allowed = [NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-."];
-    for (NSUInteger i = 0; i < name.length; i++) {
-        unichar c = [name characterAtIndex:i];
-        [safe appendString:[allowed characterIsMember:c] ? [NSString stringWithCharacters:&c length:1] : @"_"];
-    }
-    while ([safe hasPrefix:@"."]) [safe deleteCharactersInRange:NSMakeRange(0, 1)];
-    return safe.length ? safe : @"remote_patch";
-}
-
-static NSString *wq_remote_base(void)
-{
-    NSString *base = [[NSUserDefaults standardUserDefaults] stringForKey:kRemoteBaseURLKey];
-    return [base stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-}
-
 static NSString *wq_remote_token(void)
 {
     return [[NSUserDefaults standardUserDefaults] stringForKey:kRemoteTokenKey] ?: @"";
 }
 
-static void wq_remote_save_settings(NSString *base, NSString *token)
+static BOOL wq_remote_valid_filename(NSString *filename)
 {
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setObject:[base stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] forKey:kRemoteBaseURLKey];
-    [defaults setObject:[token stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet] forKey:kRemoteTokenKey];
-    [defaults synchronize];
-}
-
-static BOOL wq_remote_valid_target(NSString *bundleId, NSString *relative)
-{
-    if (!bundleId.length || !relative.length || [relative hasPrefix:@"/"] || [relative containsString:@"\\"]) return NO;
-    NSArray *parts = [relative componentsSeparatedByString:@"/"];
-    for (NSString *part in parts) if (!part.length || [part isEqualToString:@"."] || [part isEqualToString:@".."])
-        return NO;
-    return [bundleId rangeOfString:@"."].location != NSNotFound &&
-        [relative.lastPathComponent isEqualToString:@".com.apple.mobile_container_manager.metadata.plist"] == NO;
+    return filename.length > 0 && ![filename containsString:@"/"] && ![filename containsString:@"\\"] &&
+        ![filename isEqualToString:@"."] && ![filename isEqualToString:@".."] &&
+        ![filename isEqualToString:@".com.apple.mobile_container_manager.metadata.plist"];
 }
 
 static BOOL wq_remote_store(NSDictionary *remote, NSData *payload, NSString **errorText)
@@ -61,13 +33,13 @@ static BOOL wq_remote_store(NSDictionary *remote, NSData *payload, NSString **er
     NSNumber *remoteId = remote[@"id"];
     NSString *name = remote[@"name"];
     NSString *bundleId = remote[@"bundleId"];
-    NSString *relative = remote[@"relativePath"];
+    NSString *targetFileName = remote[@"targetFileName"] ?: remote[@"fileName"];
     NSString *expectedHash = remote[@"sha256"];
     NSNumber *version = remote[@"version"];
     if (![remoteId isKindOfClass:NSNumber.class] || ![name isKindOfClass:NSString.class] ||
-        ![bundleId isKindOfClass:NSString.class] || ![relative isKindOfClass:NSString.class] ||
+        ![bundleId isKindOfClass:NSString.class] || ![targetFileName isKindOfClass:NSString.class] ||
         ![expectedHash isKindOfClass:NSString.class] || ![version isKindOfClass:NSNumber.class] ||
-        !wq_remote_valid_target(bundleId, relative)) {
+        [bundleId rangeOfString:@"."].location == NSNotFound || !wq_remote_valid_filename(targetFileName)) {
         if (errorText) *errorText = @"O catálogo remoto contém um alvo inválido.";
         return NO;
     }
@@ -76,12 +48,15 @@ static BOOL wq_remote_store(NSDictionary *remote, NSData *payload, NSString **er
         if (errorText) *errorText = @"O hash do payload remoto não confere.";
         return NO;
     }
-    NSString *safe = wq_remote_safe_name([NSString stringWithFormat:@"Remote_%@_%@", remoteId, name]);
+    NSString *safe = [NSString stringWithFormat:@"Remote_%@_%@", remoteId, name];
+    NSCharacterSet *bad = [[NSCharacterSet alphanumericCharacterSet] invertedSet];
+    safe = [[safe componentsSeparatedByCharactersInSet:bad] filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSString *part, NSDictionary *unused) { (void)unused; return part.length > 0; }]].componentsJoinedByString:@"-";
+    if (!safe.length) safe = @"RemotePatch";
     NSString *patchPath = [wq_patch_root() stringByAppendingPathComponent:[safe stringByAppendingString:@".wqpatch"]];
-    NSDictionary *old = nil;
-    NSString *oldManifest = [patchPath stringByAppendingPathComponent:@"manifest.plist"];
-    if ([[NSFileManager defaultManager] fileExistsAtPath:oldManifest]) old = [NSDictionary dictionaryWithContentsOfFile:oldManifest];
-    if ([old[@"Applied"] boolValue] && [old[@"Version"] integerValue] != version.integerValue) {
+    NSString *oldManifestPath = [patchPath stringByAppendingPathComponent:@"manifest.plist"];
+    NSDictionary *old = [NSDictionary dictionaryWithContentsOfFile:oldManifestPath];
+    if ([old[@"Applied"] boolValue]) {
+        if ([old[@"Version"] integerValue] == version.integerValue) return YES;
         if (errorText) *errorText = [NSString stringWithFormat:@"O patch %@ está aplicado; desligue-o antes de atualizar.", name];
         return NO;
     }
@@ -90,8 +65,7 @@ static BOOL wq_remote_store(NSDictionary *remote, NSData *payload, NSString **er
         if (errorText) *errorText = @"Não foi possível criar o diretório do patch remoto.";
         return NO;
     }
-    NSString *payloadPath = [patchPath stringByAppendingPathComponent:@"Payload.bin"];
-    if (![payload writeToFile:payloadPath atomically:YES]) {
+    if (![payload writeToFile:[patchPath stringByAppendingPathComponent:@"Payload.bin"] atomically:YES]) {
         if (errorText) *errorText = @"Não foi possível salvar o payload remoto.";
         return NO;
     }
@@ -100,7 +74,8 @@ static BOOL wq_remote_store(NSDictionary *remote, NSData *payload, NSString **er
         @"Format": @1,
         @"Name": name,
         @"BundleID": bundleId,
-        @"RelativePath": relative,
+        @"RelativePath": @"",
+        @"TargetFileName": targetFileName,
         @"PayloadHash": actualHash,
         @"Version": version,
         @"RemoteID": remoteId,
@@ -108,26 +83,21 @@ static BOOL wq_remote_store(NSDictionary *remote, NSData *payload, NSString **er
         @"Applied": @NO,
         @"CreatedAt": @([NSDate date].timeIntervalSince1970)
     };
-    if (![manifest writeToFile:oldManifest atomically:YES]) {
+    if (![manifest writeToFile:oldManifestPath atomically:YES]) {
         if (errorText) *errorText = @"Não foi possível salvar o manifesto remoto.";
         return NO;
     }
     return YES;
 }
 
-static void wq_remote_sync(NSString *baseURL, NSString *token, void (^completion)(BOOL, NSString *))
+static void wq_remote_sync(NSString *token, void (^completion)(BOOL, NSString *))
 {
-    NSString *base = [baseURL stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-    while ([base hasSuffix:@"/"]) base = [base substringToIndex:base.length - 1];
-    NSURL *endpoint = [NSURL URLWithString:[base stringByAppendingString:@"/api/patches/sync"]];
-    if (!endpoint || !endpoint.scheme.length || !endpoint.host.length || !token.length) {
-        completion(NO, @"Informe uma URL HTTPS válida e o token do WQ Patch Hub.");
-        return;
-    }
+    NSURL *endpoint = [NSURL URLWithString:[kRemoteHubURL stringByAppendingString:@"/api/patches/sync"]];
+    if (!endpoint || !token.length) { completion(NO, @"Token do WQ Patch Hub não configurado."); return; }
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:endpoint];
     [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
-    [request setValue:@"WQFiles/RemoteSync" forHTTPHeaderField:@"User-Agent"];
-    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) {
+    [request setValue:@"WQFiles/AutoSync" forHTTPHeaderField:@"User-Agent"];
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) {
         if (networkError || !data) { completion(NO, networkError.localizedDescription ?: @"Falha de conexão com o hub."); return; }
         NSHTTPURLResponse *http = (NSHTTPURLResponse *)response;
         if (http.statusCode < 200 || http.statusCode >= 300) { completion(NO, [NSString stringWithFormat:@"O hub respondeu HTTP %ld.", (long)http.statusCode]); return; }
@@ -142,7 +112,7 @@ static void wq_remote_sync(NSString *baseURL, NSString *token, void (^completion
             NSString *downloadPath = remote[@"downloadPath"];
             NSNumber *remoteId = remote[@"id"];
             if (![downloadPath isKindOfClass:NSString.class] || ![remoteId isKindOfClass:NSNumber.class]) continue;
-            NSURL *downloadURL = [NSURL URLWithString:[base stringByAppendingString:downloadPath]];
+            NSURL *downloadURL = [NSURL URLWithString:[kRemoteHubURL stringByAppendingString:downloadPath]];
             if (!downloadURL) continue;
             dispatch_group_enter(group);
             NSMutableURLRequest *download = [NSMutableURLRequest requestWithURL:downloadURL];
@@ -159,69 +129,28 @@ static void wq_remote_sync(NSString *baseURL, NSString *token, void (^completion
         }
         dispatch_group_notify(group, dispatch_get_main_queue(), ^{
             if (errors.count) completion(NO, [errors componentsJoinedByString:@"\n"]);
-            else completion(YES, [NSString stringWithFormat:@"%lu patch(es) remoto(s) sincronizado(s).", (unsigned long)items.count]);
+            else completion(YES, [NSString stringWithFormat:@"%lu patch(es) sincronizado(s).", (unsigned long)items.count]);
         });
-    }];
-    [task resume];
+    }] resume];
 }
 
-@interface WQRemoteSyncViewController : UITableViewController
-@property (nonatomic, copy) dispatch_block_t completion;
-@end
+static void wq_remote_ask_token(UIViewController *presenter, dispatch_block_t completion)
+{
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Ativar sincronização automática" message:@"Cole uma vez o token criado no WQ Patch Hub. A URL já está configurada e os patches serão sincronizados automaticamente." preferredStyle:UIAlertControllerStyleAlert];
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = @"wqpt_..."; field.secureTextEntry = YES; field.autocapitalizationType = UITextAutocapitalizationTypeNone; field.autocorrectionType = UITextAutocorrectionTypeNo; }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Agora não" style:UIAlertActionStyleCancel handler:nil]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Salvar e sincronizar" style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused action) {
+        NSString *token = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+        if (token.length) { [[NSUserDefaults standardUserDefaults] setObject:token forKey:kRemoteTokenKey]; [[NSUserDefaults standardUserDefaults] synchronize]; wq_remote_sync(token, ^(BOOL ok, NSString *message) { if (!ok) dispatch_async(dispatch_get_main_queue(), ^{ wq_alert(presenter, @"Sincronização falhou", message); }); else if (completion) completion(); }); }
+    }]];
+    [presenter presentViewController:alert animated:YES completion:nil];
+}
 
-@implementation WQRemoteSyncViewController
-- (void)viewDidLoad
+void wq_remote_sync_for_view(UIViewController *presenter, dispatch_block_t completion)
 {
-    [super viewDidLoad];
-    self.title = @"Remote Sync";
-    self.tableView.tableFooterView = [UIView new];
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(syncNow)];
-}
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return 2; }
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"remote" ] ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"remote"];
-    NSString *base = wq_remote_base();
-    if (indexPath.row == 0) { cell.textLabel.text = @"Hub URL"; cell.detailTextLabel.text = base.length ? base : @"Não configurado"; cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator; }
-    else { cell.textLabel.text = @"Sincronizar patches"; cell.detailTextLabel.text = @"Baixa somente os patches publicados"; cell.accessoryType = UITableViewCellAccessoryNone; }
-    return cell;
-}
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    if (indexPath.row == 0) [self configure]; else [self syncNow];
-}
-- (void)configure
-{
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Remote Sync" message:@"Cole a URL publicada do WQ Patch Hub e o token criado no painel Manus." preferredStyle:UIAlertControllerStyleAlert];
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = @"https://seu-hub.manus.space"; field.text = wq_remote_base(); field.autocapitalizationType = UITextAutocapitalizationTypeNone; field.autocorrectionType = UITextAutocorrectionTypeNo; field.keyboardType = UIKeyboardTypeURL; }];
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = @"wqpt_..."; field.text = wq_remote_token(); field.secureTextEntry = YES; field.autocapitalizationType = UITextAutocapitalizationTypeNone; field.autocorrectionType = UITextAutocorrectionTypeNo; }];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Salvar e sincronizar" style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused action) { wq_remote_save_settings(alert.textFields[0].text, alert.textFields[1].text); [self syncNow]; }]];
-    [self presentViewController:alert animated:YES completion:nil];
-}
-- (void)syncNow
-{
-    NSString *base = wq_remote_base(); NSString *token = wq_remote_token();
-    if (!base.length || !token.length) { [self configure]; return; }
-    self.navigationItem.rightBarButtonItem.enabled = NO;
-    wq_remote_sync(base, token, ^(BOOL ok, NSString *message) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            self.navigationItem.rightBarButtonItem.enabled = YES;
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:ok ? @"Sincronização concluída" : @"Sincronização falhou" message:message preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
-            [self presentViewController:alert animated:YES completion:nil];
-            if (ok && self.completion) self.completion();
-            [self.tableView reloadData];
-        });
+    NSString *token = wq_remote_token();
+    if (!token.length) { wq_remote_ask_token(presenter, completion); return; }
+    wq_remote_sync(token, ^(BOOL ok, NSString *message) {
+        dispatch_async(dispatch_get_main_queue(), ^{ if (!ok) wq_alert(presenter, @"Sincronização automática falhou", message); else if (completion) completion(); });
     });
-}
-@end
-
-void wq_remote_present_sync(UIViewController *presenter, dispatch_block_t completion)
-{
-    WQRemoteSyncViewController *controller = [WQRemoteSyncViewController new];
-    controller.completion = completion;
-    UINavigationController *navigation = [[UINavigationController alloc] initWithRootViewController:controller];
-    [presenter presentViewController:navigation animated:YES completion:nil];
 }
