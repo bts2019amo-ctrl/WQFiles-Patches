@@ -238,190 +238,188 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     return [wq_patch_manifest(patchPath)[@"Applied"] boolValue];
 }
 
-@interface WQPatchViewController ()
-@property (nonatomic, strong) NSArray<NSString *> *patches;
-@property (nonatomic, copy) NSArray<NSArray<NSString *> *> *menuItems;
-@property (nonatomic) BOOL menuExpanded;
-@end
 
-@interface WQPatchCategoryViewController : UIViewController
-- (instancetype)initWithTitle:(NSString *)title symbol:(NSString *)symbol;
+@interface WQDashedCardView : UIView
 @end
-
-@implementation WQPatchCategoryViewController {
-    NSString *_categoryTitle;
-    NSString *_categorySymbol;
+@implementation WQDashedCardView
+- (void)layoutSubviews
+{
+    [super layoutSubviews];
+    CAShapeLayer *dash = (CAShapeLayer *)[self.layer.sublayers filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(CALayer *obj, NSDictionary *_) { return [obj.name isEqualToString:@"wq_dash"]; }]].firstObject;
+    if (!dash) {
+        dash = [CAShapeLayer layer];
+        dash.name = @"wq_dash";
+        dash.fillColor = UIColor.clearColor.CGColor;
+        dash.strokeColor = [UIColor.whiteColor colorWithAlphaComponent:0.24].CGColor;
+        dash.lineWidth = 1.0;
+        dash.lineDashPattern = @[@5, @5];
+        [self.layer addSublayer:dash];
+    }
+    dash.frame = self.bounds;
+    dash.path = [UIBezierPath bezierPathWithRoundedRect:CGRectInset(self.bounds, 1, 1) cornerRadius:18].CGPath;
 }
+@end
 
-- (instancetype)initWithTitle:(NSString *)title symbol:(NSString *)symbol
+@interface WQQuickMenuViewController : UIViewController
+- (instancetype)initWithItems:(NSArray<NSArray<NSString *> *> *)items selection:(void (^)(NSString *))selection;
+@end
+
+@implementation WQQuickMenuViewController {
+    NSArray<NSArray<NSString *> *> *_items;
+    void (^_selection)(NSString *);
+}
+- (instancetype)initWithItems:(NSArray<NSArray<NSString *> *> *)items selection:(void (^)(NSString *))selection
 {
     if ((self = [super initWithNibName:nil bundle:nil])) {
-        _categoryTitle = [title copy];
-        _categorySymbol = [symbol copy];
+        _items = [items copy];
+        _selection = [selection copy];
     }
     return self;
 }
-
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.title = _categoryTitle;
-    self.view.backgroundColor = UIColor.clearColor;
-
-    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:_categorySymbol]];
-    icon.translatesAutoresizingMaskIntoConstraints = NO;
-    icon.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.86];
-    icon.contentMode = UIViewContentModeScaleAspectFit;
-    icon.preferredSymbolConfiguration = [UIImageSymbolConfiguration configurationWithPointSize:42 weight:UIImageSymbolWeightMedium];
-
+    self.view.backgroundColor = [UIColor colorWithRed:0.055 green:0.055 blue:0.065 alpha:0.98];
+    UIView *grabber = [UIView new];
+    grabber.translatesAutoresizingMaskIntoConstraints = NO;
+    grabber.backgroundColor = [UIColor.whiteColor colorWithAlphaComponent:0.32];
+    grabber.layer.cornerRadius = 2.5;
+    [self.view addSubview:grabber];
+    UILabel *eyebrow = [UILabel new];
+    eyebrow.translatesAutoresizingMaskIntoConstraints = NO;
+    eyebrow.text = @"NAVEGAÇÃO RÁPIDA";
+    eyebrow.font = [UIFont systemFontOfSize:11 weight:UIFontWeightBold];
+    eyebrow.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.55];
+    eyebrow.textAlignment = NSTextAlignmentCenter;
+    [self.view addSubview:eyebrow];
     UILabel *title = [UILabel new];
     title.translatesAutoresizingMaskIntoConstraints = NO;
-    title.text = _categoryTitle;
-    title.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.94];
-    title.font = [UIFont systemFontOfSize:24 weight:UIFontWeightSemibold];
-    title.textAlignment = NSTextAlignmentCenter;
-
-    UILabel *subtitle = [UILabel new];
-    subtitle.translatesAutoresizingMaskIntoConstraints = NO;
-    subtitle.text = @"Área preparada para receber os patches.";
-    subtitle.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.56];
-    subtitle.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
-    subtitle.textAlignment = NSTextAlignmentCenter;
-
-    UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[icon, title, subtitle]];
+    title.text = @"Escolha uma categoria";
+    title.font = [UIFont systemFontOfSize:22 weight:UIFontWeightSemibold];
+    title.textColor = UIColor.whiteColor;
+    [self.view addSubview:title];
+    UIStackView *stack = [[UIStackView alloc] initWithFrame:CGRectZero];
     stack.translatesAutoresizingMaskIntoConstraints = NO;
     stack.axis = UILayoutConstraintAxisVertical;
-    stack.alignment = UIStackViewAlignmentCenter;
-    stack.spacing = 14;
+    stack.spacing = 0;
     [self.view addSubview:stack];
+    for (NSArray<NSString *> *item in _items) {
+        UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+        button.translatesAutoresizingMaskIntoConstraints = NO;
+        button.tag = [_items indexOfObject:item];
+        button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+        [button addTarget:self action:@selector(selectCategory:) forControlEvents:UIControlEventTouchUpInside];
+        UIView *row = [UIView new];
+        row.translatesAutoresizingMaskIntoConstraints = NO;
+        UILabel *name = [UILabel new];
+        name.translatesAutoresizingMaskIntoConstraints = NO;
+        name.text = item[0];
+        name.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
+        name.textColor = UIColor.whiteColor;
+        UILabel *detail = [UILabel new];
+        detail.translatesAutoresizingMaskIntoConstraints = NO;
+        detail.text = item[1];
+        detail.font = [UIFont systemFontOfSize:12 weight:UIFontWeightRegular];
+        detail.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.52];
+        UIImageView *arrow = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"arrow.up.right"]];
+        arrow.translatesAutoresizingMaskIntoConstraints = NO;
+        arrow.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.62];
+        [row addSubview:name]; [row addSubview:detail]; [row addSubview:arrow]; [row addSubview:button];
+        [NSLayoutConstraint activateConstraints:@[
+            [name.leadingAnchor constraintEqualToAnchor:row.leadingAnchor], [name.topAnchor constraintEqualToAnchor:row.topAnchor constant:12],
+            [detail.leadingAnchor constraintEqualToAnchor:row.leadingAnchor], [detail.topAnchor constraintEqualToAnchor:name.bottomAnchor constant:3],
+            [arrow.trailingAnchor constraintEqualToAnchor:row.trailingAnchor], [arrow.centerYAnchor constraintEqualToAnchor:row.centerYAnchor],
+            [button.leadingAnchor constraintEqualToAnchor:row.leadingAnchor], [button.trailingAnchor constraintEqualToAnchor:row.trailingAnchor],
+            [button.topAnchor constraintEqualToAnchor:row.topAnchor], [button.bottomAnchor constraintEqualToAnchor:row.bottomAnchor],
+            [row.heightAnchor constraintEqualToConstant:66]
+        ]];
+        [stack addArrangedSubview:row];
+        if (item != _items.lastObject) {
+            UIView *line = [UIView new]; line.backgroundColor = [UIColor.whiteColor colorWithAlphaComponent:0.10];
+            [stack addArrangedSubview:line]; [line.heightAnchor constraintEqualToConstant:1].active = YES;
+        }
+    }
     [NSLayoutConstraint activateConstraints:@[
-        [icon.widthAnchor constraintEqualToConstant:58],
-        [icon.heightAnchor constraintEqualToConstant:58],
-        [stack.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [stack.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor constant:-30],
-        [stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:self.view.leadingAnchor constant:24],
-        [stack.trailingAnchor constraintLessThanOrEqualToAnchor:self.view.trailingAnchor constant:-24],
+        [grabber.topAnchor constraintEqualToAnchor:self.view.topAnchor constant:9], [grabber.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor], [grabber.widthAnchor constraintEqualToConstant:38], [grabber.heightAnchor constraintEqualToConstant:5],
+        [eyebrow.topAnchor constraintEqualToAnchor:grabber.bottomAnchor constant:22], [eyebrow.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24], [eyebrow.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
+        [title.topAnchor constraintEqualToAnchor:eyebrow.bottomAnchor constant:6], [title.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24],
+        [stack.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:14], [stack.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:24], [stack.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-24],
     ]];
+}
+- (void)selectCategory:(UIButton *)sender
+{
+    NSString *category = _items[(NSUInteger)sender.tag][0];
+    [self dismissViewControllerAnimated:YES completion:^{ if (self->_selection) self->_selection(category); }];
 }
 @end
 
-@implementation WQPatchViewController
+@interface WQPatchViewController : UITableViewController
+@end
+@implementation WQPatchViewController {
+    UILabel *_categoryLabel;
+    UILabel *_countLabel;
+    UILabel *_instructionLabel;
+    WQDashedCardView *_emptyCard;
+    NSString *_selectedCategory;
+}
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.title = @"Patches";
+    _selectedCategory = @"Avatar";
     self.view.backgroundColor = UIColor.clearColor;
     self.tableView.backgroundColor = UIColor.clearColor;
     self.tableView.backgroundView = nil;
-    self.tableView.separatorColor = [UIColor.whiteColor colorWithAlphaComponent:0.12];
-    self.menuItems = @[
-        @[@"Cache", @"archivebox"],
-        @[@"Avatar", @"person.crop.circle"],
-        @[@"Skin", @"paintbrush"],
-        @[@"Holograma", @"cube.transparent"],
-        @[@"EXTERNAL", @"shield.lefthalf.filled"],
-    ];
-    UIBarButtonItem *add = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
-    self.navigationItem.rightBarButtonItem = add;
-    [self reloadPatches];
+    self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
+    self.tableView.scrollEnabled = NO;
+    UILabel *navTitle = [UILabel new];
+    navTitle.text = @"3105 REMOTE PATCHES";
+    navTitle.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
+    navTitle.textColor = UIColor.whiteColor;
+    self.navigationItem.titleView = navTitle;
+    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"line.3.horizontal"] style:UIBarButtonItemStylePlain target:self action:@selector(showQuickMenu)];
+    UIButton *keyButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [keyButton setTitle:@"  TROCAR KEY" forState:UIControlStateNormal];
+    [keyButton setImage:[UIImage systemImageNamed:@"key.fill"] forState:UIControlStateNormal];
+    keyButton.titleLabel.font = [UIFont systemFontOfSize:11 weight:UIFontWeightBold];
+    [keyButton setTitleColor:[UIColor.whiteColor colorWithAlphaComponent:0.82] forState:UIControlStateNormal];
+    keyButton.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.82];
+    keyButton.backgroundColor = [UIColor.whiteColor colorWithAlphaComponent:0.09];
+    keyButton.layer.cornerRadius = 8;
+    keyButton.contentEdgeInsets = UIEdgeInsetsMake(7, 9, 7, 9);
+    [keyButton addTarget:self action:@selector(changeKey) forControlEvents:UIControlEventTouchUpInside];
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:keyButton];
+    _categoryLabel = [UILabel new]; _categoryLabel.translatesAutoresizingMaskIntoConstraints = NO; _categoryLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBold]; _categoryLabel.textColor = UIColor.whiteColor; _categoryLabel.text = @"PATCHES DE AVATAR";
+    _countLabel = [UILabel new]; _countLabel.translatesAutoresizingMaskIntoConstraints = NO; _countLabel.font = [UIFont systemFontOfSize:12 weight:UIFontWeightMedium]; _countLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.52]; _countLabel.text = @"0 REMOTOS"; _countLabel.textAlignment = NSTextAlignmentRight;
+    _instructionLabel = [UILabel new]; _instructionLabel.translatesAutoresizingMaskIntoConstraints = NO; _instructionLabel.font = [UIFont systemFontOfSize:12]; _instructionLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.48]; _instructionLabel.text = @"Toque em um patch para ver os controles. Você pode ativá-lo ou restaurar o original."; _instructionLabel.numberOfLines = 0;
+    _emptyCard = [WQDashedCardView new]; _emptyCard.translatesAutoresizingMaskIntoConstraints = NO; _emptyCard.backgroundColor = [UIColor.whiteColor colorWithAlphaComponent:0.025]; _emptyCard.layer.cornerRadius = 18;
+    UIImageView *cube = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"cube.transparent"]]; cube.translatesAutoresizingMaskIntoConstraints = NO; cube.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.38]; cube.contentMode = UIViewContentModeScaleAspectFit;
+    UILabel *emptyTitle = [UILabel new]; emptyTitle.translatesAutoresizingMaskIntoConstraints = NO; emptyTitle.text = @"Nenhum patch nesta categoria ainda"; emptyTitle.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold]; emptyTitle.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.88]; emptyTitle.textAlignment = NSTextAlignmentCenter;
+    UILabel *emptyDetail = [UILabel new]; emptyDetail.translatesAutoresizingMaskIntoConstraints = NO; emptyDetail.text = @"Atualize a lista de patches e permaneça nesta categoria para acompanhar novos itens."; emptyDetail.font = [UIFont systemFontOfSize:13]; emptyDetail.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.48]; emptyDetail.textAlignment = NSTextAlignmentCenter; emptyDetail.numberOfLines = 0;
+    [self.view addSubview:_categoryLabel]; [self.view addSubview:_countLabel]; [self.view addSubview:_instructionLabel]; [self.view addSubview:_emptyCard]; [_emptyCard addSubview:cube]; [_emptyCard addSubview:emptyTitle]; [_emptyCard addSubview:emptyDetail];
+    [NSLayoutConstraint activateConstraints:@[
+        [_categoryLabel.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:22], [_categoryLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:22],
+        [_countLabel.centerYAnchor constraintEqualToAnchor:_categoryLabel.centerYAnchor], [_countLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-22],
+        [_instructionLabel.topAnchor constraintEqualToAnchor:_categoryLabel.bottomAnchor constant:8], [_instructionLabel.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:22], [_instructionLabel.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-22],
+        [_emptyCard.topAnchor constraintEqualToAnchor:_instructionLabel.bottomAnchor constant:22], [_emptyCard.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor constant:22], [_emptyCard.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor constant:-22], [_emptyCard.heightAnchor constraintEqualToConstant:250],
+        [cube.centerXAnchor constraintEqualToAnchor:_emptyCard.centerXAnchor], [cube.topAnchor constraintEqualToAnchor:_emptyCard.topAnchor constant:48], [cube.widthAnchor constraintEqualToConstant:48], [cube.heightAnchor constraintEqualToConstant:48],
+        [emptyTitle.topAnchor constraintEqualToAnchor:cube.bottomAnchor constant:18], [emptyTitle.leadingAnchor constraintEqualToAnchor:_emptyCard.leadingAnchor constant:20], [emptyTitle.trailingAnchor constraintEqualToAnchor:_emptyCard.trailingAnchor constant:-20],
+        [emptyDetail.topAnchor constraintEqualToAnchor:emptyTitle.bottomAnchor constant:9], [emptyDetail.leadingAnchor constraintEqualToAnchor:_emptyCard.leadingAnchor constant:30], [emptyDetail.trailingAnchor constraintEqualToAnchor:_emptyCard.trailingAnchor constant:-30]
+    ]];
 }
-- (void)reloadPatches
+- (void)showQuickMenu
 {
-    dispatch_async(wq_io(), ^{
-        NSArray *names = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:wq_patch_root() error:nil] ?: @[];
-        NSMutableArray *paths = [NSMutableArray new];
-        for (NSString *n in names) if ([n.pathExtension isEqualToString:@"wqpatch"]) [paths addObject:[wq_patch_root() stringByAppendingPathComponent:n]];
-        [paths sortUsingComparator:^NSComparisonResult(NSString *a, NSString *b) { return [a.lastPathComponent localizedCaseInsensitiveCompare:b.lastPathComponent]; }];
-        dispatch_async(dispatch_get_main_queue(), ^{ self.patches = paths; [self.tableView reloadData]; });
-    });
+    NSArray *items = @[@[@"Avatar", @"Patches de avatar"], @[@"Holograma", @"Patches de holograma"], @[@"Cache", @"Patches de cache"], @[@"Skin", @"Patches de skin"]];
+    __weak typeof(self) weakSelf = self;
+    WQQuickMenuViewController *menu = [[WQQuickMenuViewController alloc] initWithItems:items selection:^(NSString *category) { [weakSelf selectCategory:category]; }];
+    menu.modalPresentationStyle = UIModalPresentationPageSheet;
+    if (@available(iOS 15.0, *)) { UISheetPresentationController *sheet = menu.sheetPresentationController; sheet.detents = @[[UISheetPresentationControllerDetent mediumDetent]]; sheet.prefersGrabberVisible = YES; sheet.preferredCornerRadius = 22; }
+    [self presentViewController:menu animated:YES completion:nil];
 }
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 2; }
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
+- (void)selectCategory:(NSString *)category
 {
-    return section == 0 ? (self.menuExpanded ? self.menuItems.count + 1 : 1) : self.patches.count;
+    _selectedCategory = category;
+    _categoryLabel.text = [NSString stringWithFormat:@"PATCHES DE %@", category.uppercaseString];
 }
-
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
-{
-    return section == 0 ? @"Categorias" : @"Patches";
-}
-
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"patch"] ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"patch"];
-    cell.accessoryView = nil;
-    cell.accessoryType = UITableViewCellAccessoryNone;
-    cell.detailTextLabel.text = nil;
-    cell.imageView.image = nil;
-    cell.backgroundColor = UIColor.clearColor;
-    cell.contentView.backgroundColor = UIColor.clearColor;
-    cell.textLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.92];
-    cell.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.78];
-    if (indexPath.section == 0) {
-        if (indexPath.row == 0) {
-            cell.textLabel.text = @"Menu";
-            cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
-            cell.imageView.image = [UIImage systemImageNamed:@"line.3.horizontal.decrease.circle"];
-            cell.imageView.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.86];
-            cell.accessoryType = self.menuExpanded ? UITableViewCellAccessoryDetailDisclosureButton : UITableViewCellAccessoryDisclosureIndicator;
-            return cell;
-        }
-        NSArray<NSString *> *item = self.menuItems[(NSUInteger)indexPath.row - 1];
-        cell.textLabel.text = item[0];
-        cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightMedium];
-        cell.imageView.image = [UIImage systemImageNamed:item[1]];
-        cell.imageView.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.82];
-        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-        return cell;
-    }
-    NSString *path = self.patches[(NSUInteger)indexPath.row]; NSDictionary *m = wq_patch_manifest(path);
-    cell.textLabel.text = m[@"Name"] ?: path.lastPathComponent.stringByDeletingPathExtension;
-    cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"TargetFileName"] ?: m[@"RelativePath"] ?: @"?"];
-    cell.detailTextLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.56];
-    UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
-    cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.circle.fill" : @"circle"];
-    return cell;
-}
-- (void)togglePatch:(UISwitch *)sender
-{
-    NSInteger row = sender.tag; if (row < 0 || row >= (NSInteger)self.patches.count) return;
-    NSString *path = self.patches[(NSUInteger)row]; BOOL on = sender.isOn; sender.enabled = NO;
-    dispatch_async(wq_io(), ^{
-        NSString *error = nil; BOOL ok = on ? wq_patch_apply(path, &error) : wq_patch_restore(path, &error);
-        dispatch_async(dispatch_get_main_queue(), ^{
-            sender.enabled = YES;
-            if (!ok) { sender.on = !on; wq_alert(self, on ? @"Patch not applied" : @"Patch not restored", error ?: @"Unknown error"); }
-            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:row inSection:1]] withRowAnimation:UITableViewRowAnimationNone];
-        });
-    });
-}
-
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
-{
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    if (indexPath.section != 0) return;
-    if (indexPath.row == 0) {
-        self.menuExpanded = !self.menuExpanded;
-        [tableView reloadSections:[NSIndexSet indexSetWithIndex:0] withRowAnimation:UITableViewRowAnimationFade];
-        return;
-    }
-    NSArray<NSString *> *item = self.menuItems[(NSUInteger)indexPath.row - 1];
-    [self.navigationController pushViewController:[[WQPatchCategoryViewController alloc] initWithTitle:item[0] symbol:item[1]] animated:YES];
-}
-
-- (void)addPatch
-{
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Create Patch" message:@"The target is the file that will be replaced. The replacement is the file whose contents will be applied when the toggle is on." preferredStyle:UIAlertControllerStyleAlert];
-    [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"Target path in App Data"; f.autocorrectionType = UITextAutocorrectionTypeNo; f.autocapitalizationType = UITextAutocapitalizationTypeNone; }];
-    [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"Replacement file path"; f.autocorrectionType = UITextAutocorrectionTypeNo; f.autocapitalizationType = UITextAutocapitalizationTypeNone; }];
-    [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"Patch name"; }];
-    [a addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    [a addAction:[UIAlertAction actionWithTitle:@"Create" style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused action) {
-        NSString *target = a.textFields[0].text.stringByStandardizingPath;
-        NSString *replacement = a.textFields[1].text.stringByStandardizingPath;
-        NSString *name = a.textFields[2].text;
-        dispatch_async(wq_io(), ^{ NSString *error = nil; BOOL ok = wq_patch_create_from_file(target, replacement, name, &error); dispatch_async(dispatch_get_main_queue(), ^{ if (!ok) wq_alert(self, @"Patch not created", error ?: @"Unknown error"); else [self reloadPatches]; }); });
-    }]];
-    [self presentViewController:a animated:YES completion:nil];
-}
+- (void)changeKey { }
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return 0; }
 @end
