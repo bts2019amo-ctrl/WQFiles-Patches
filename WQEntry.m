@@ -147,7 +147,7 @@
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Histórico" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
     if (!self.history.count) alert.message = @"Nenhum cálculo salvo ainda.";
     for (NSString *entry in self.history) [alert addAction:[UIAlertAction actionWithTitle:entry style:UIAlertActionStyleDefault handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Limpar histórico" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *a) { [self.history removeAllObjects]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Limpar histórico" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *__unused a) { [self.history removeAllObjects]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
@@ -155,9 +155,9 @@
 - (void)showModeMenu
 {
     UIAlertController *menu = [UIAlertController alertControllerWithTitle:@"Modo da calculadora" message:nil preferredStyle:UIAlertControllerStyleActionSheet];
-    [menu addAction:[UIAlertAction actionWithTitle:@"Básica" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { self.modeLabel.text = @"BÁSICA"; }]];
-    [menu addAction:[UIAlertAction actionWithTitle:@"Científica" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { self.modeLabel.text = @"CIENTÍFICA"; [self scientificPrompt]; }]];
-    [menu addAction:[UIAlertAction actionWithTitle:@"Conversão BRL ↔ EUR" style:UIAlertActionStyleDefault handler:^(UIAlertAction *a) { self.modeLabel.text = @"CONVERSÃO"; [self conversionPrompt]; }]];
+    [menu addAction:[UIAlertAction actionWithTitle:@"Básica" style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused a) { self.modeLabel.text = @"BÁSICA"; }]];
+    [menu addAction:[UIAlertAction actionWithTitle:@"Científica" style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused a) { self.modeLabel.text = @"CIENTÍFICA"; [self scientificPrompt]; }]];
+    [menu addAction:[UIAlertAction actionWithTitle:@"Conversão BRL ↔ EUR" style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused a) { self.modeLabel.text = @"CONVERSÃO"; [self conversionPrompt]; }]];
     [menu addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:menu animated:YES completion:nil];
 }
@@ -168,7 +168,7 @@
     [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = @"Número"; field.keyboardType = UIKeyboardTypeDecimalPad; }];
     NSArray *operations = @[@"√x", @"x²", @"sen", @"cos", @"tg", @"ln"];
     for (NSString *operation in operations) {
-        [alert addAction:[UIAlertAction actionWithTitle:operation style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+        [alert addAction:[UIAlertAction actionWithTitle:operation style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused action) {
             double value = alert.textFields.firstObject.text.doubleValue, result = 0;
             if ([operation isEqualToString:@"√x"]) result = value >= 0 ? sqrt(value) : 0;
             else if ([operation isEqualToString:@"x²"]) result = pow(value, 2);
@@ -188,8 +188,8 @@
 {
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Conversão BRL ↔ EUR" message:@"Taxa demonstrativa: 1 EUR = R$ 6,00" preferredStyle:UIAlertControllerStyleAlert];
     [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = @"Valor"; field.keyboardType = UIKeyboardTypeDecimalPad; }];
-    [alert addAction:[UIAlertAction actionWithTitle:@"BRL → EUR" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { [self convertValue:alert.textFields.firstObject.text.doubleValue divisor:6.0 label:@"BRL → EUR"]; }]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"EUR → BRL" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { [self convertValue:alert.textFields.firstObject.text.doubleValue divisor:1.0 label:@"EUR → BRL"]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"BRL → EUR" style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused action) { [self convertValue:alert.textFields.firstObject.text.doubleValue divisor:6.0 label:@"BRL → EUR"]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"EUR → BRL" style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused action) { [self convertValue:alert.textFields.firstObject.text.doubleValue divisor:1.0 label:@"EUR → BRL"]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }
@@ -274,7 +274,7 @@ static NSString *const WQKeyEndpoint = @"https://proxysystem.org/api/trpc/proxyK
     NSString *jsonText = [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding];
     NSString *encoded = [jsonText stringByAddingPercentEncodingWithAllowedCharacters:NSCharacterSet.URLQueryAllowedCharacterSet];
     NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@?input=%@", WQKeyEndpoint, encoded]];
-    [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+    [[[NSURLSession sharedSession] dataTaskWithURL:url completionHandler:^(NSData *data, NSURLResponse *__unused response, NSError *error) {
         BOOL accepted = NO; NSString *message = nil;
         if (!error && data) { NSDictionary *root = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil]; NSDictionary *result = root[@"result"][@"data"][@"json"]; accepted = [result[@"success"] boolValue] && [result[@"active"] boolValue] && [result[@"status"] isEqualToString:@"active"]; message = result[@"message"] ?: result[@"reason"]; }
         dispatch_async(dispatch_get_main_queue(), ^{ [self.spinner stopAnimating]; if (accepted) { [self saveKey:key]; if (self.onAuthenticated) self.onAuthenticated(); } else self.statusLabel.text = message.length ? message : @"Não foi possível verificar a chave. Verifique sua conexão."; });
