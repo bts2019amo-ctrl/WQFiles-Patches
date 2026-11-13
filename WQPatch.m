@@ -421,7 +421,7 @@ BOOL wq_patch_prune_remote_not_in(NSArray<NSNumber *> *activeRemoteIDs, NSString
     [super viewDidLoad];
     self.title = @"Patches";
     self.view.backgroundColor = UIColor.clearColor;
-    WQParticleBackgroundView *particles = [WQParticleBackgroundView new];
+    UIView *particles = [NSClassFromString(@"WQParticleBackgroundView") new];
     particles.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view insertSubview:particles atIndex:0];
     [NSLayoutConstraint activateConstraints:@[
