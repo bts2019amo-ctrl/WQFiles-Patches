@@ -78,8 +78,6 @@ enum AppTheme {
     static let contentCardPadding: CGFloat = 16
 }
 struct ParticleFieldBackground: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         GeometryReader { _ in
             ZStack {
@@ -89,16 +87,10 @@ struct ParticleFieldBackground: View {
                     endPoint: .bottomTrailing
                 )
 
-                if reduceMotion {
+                TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { timeline in
                     Canvas { context, size in
-                        Self.drawConstellation(in: &context, size: size, phase: 0)
-                    }
-                } else {
-                    TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { timeline in
-                        Canvas { context, size in
-                            let phase = timeline.date.timeIntervalSinceReferenceDate * 1.35
-                            Self.drawConstellation(in: &context, size: size, phase: phase)
-                        }
+                        let phase = timeline.date.timeIntervalSinceReferenceDate * 1.35
+                        Self.drawConstellation(in: &context, size: size, phase: phase)
                     }
                 }
             }
