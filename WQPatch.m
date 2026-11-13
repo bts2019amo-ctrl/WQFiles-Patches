@@ -418,13 +418,53 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 @end
 
 @implementation WQPatchViewController
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    [self.navigationController setNavigationBarHidden:NO animated:NO];
+}
+
+- (UIView *)emptyPatchesBackground
+{
+    UIView *background = [UIView new];
+    WQDashedCardView *card = [WQDashedCardView new];
+    card.translatesAutoresizingMaskIntoConstraints = NO;
+    card.backgroundColor = [UIColor.whiteColor colorWithAlphaComponent:0.025];
+    card.layer.cornerRadius = 18;
+    UIImageView *icon = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"cube.transparent"]];
+    icon.translatesAutoresizingMaskIntoConstraints = NO;
+    icon.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.38];
+    UILabel *title = [UILabel new];
+    title.translatesAutoresizingMaskIntoConstraints = NO;
+    title.text = @"Nenhum patch nesta categoria ainda";
+    title.font = [UIFont systemFontOfSize:16 weight:UIFontWeightSemibold];
+    title.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.88];
+    title.textAlignment = NSTextAlignmentCenter;
+    UILabel *detail = [UILabel new];
+    detail.translatesAutoresizingMaskIntoConstraints = NO;
+    detail.text = @"Atualize a lista de patches e permaneça nesta categoria para acompanhar novos itens.";
+    detail.font = [UIFont systemFontOfSize:13];
+    detail.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.48];
+    detail.textAlignment = NSTextAlignmentCenter;
+    detail.numberOfLines = 0;
+    [background addSubview:card]; [card addSubview:icon]; [card addSubview:title]; [card addSubview:detail];
+    [NSLayoutConstraint activateConstraints:@[
+        [card.leadingAnchor constraintEqualToAnchor:background.leadingAnchor constant:22], [card.trailingAnchor constraintEqualToAnchor:background.trailingAnchor constant:-22],
+        [card.topAnchor constraintEqualToAnchor:background.topAnchor constant:54], [card.heightAnchor constraintEqualToConstant:250],
+        [icon.centerXAnchor constraintEqualToAnchor:card.centerXAnchor], [icon.topAnchor constraintEqualToAnchor:card.topAnchor constant:48], [icon.widthAnchor constraintEqualToConstant:48], [icon.heightAnchor constraintEqualToConstant:48],
+        [title.topAnchor constraintEqualToAnchor:icon.bottomAnchor constant:18], [title.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:20], [title.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-20],
+        [detail.topAnchor constraintEqualToAnchor:title.bottomAnchor constant:9], [detail.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:30], [detail.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-30]
+    ]];
+    return background;
+}
+
 - (void)viewDidLoad
 {
     [super viewDidLoad];
     self.title = @"3105 REMOTE PATCHES";
     self.view.backgroundColor = UIColor.clearColor;
     self.tableView.backgroundColor = UIColor.clearColor;
-    self.tableView.backgroundView = nil;
+    self.tableView.backgroundView = [self emptyPatchesBackground];
     self.tableView.separatorColor = [UIColor.whiteColor colorWithAlphaComponent:0.10];
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"line.3.horizontal"] style:UIBarButtonItemStylePlain target:self action:@selector(showQuickMenu)];
     UIButton *addButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -448,7 +488,11 @@ BOOL wq_patch_is_applied(NSString *patchPath)
         NSMutableArray *paths = [NSMutableArray new];
         for (NSString *n in names) if ([n.pathExtension isEqualToString:@"wqpatch"]) [paths addObject:[wq_patch_root() stringByAppendingPathComponent:n]];
         [paths sortUsingComparator:^NSComparisonResult(NSString *a, NSString *b) { return [a.lastPathComponent localizedCaseInsensitiveCompare:b.lastPathComponent]; }];
-        dispatch_async(dispatch_get_main_queue(), ^{ self.patches = paths; [self.tableView reloadData]; });
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.patches = paths;
+            self.tableView.backgroundView = paths.count ? nil : [self emptyPatchesBackground];
+            [self.tableView reloadData];
+        });
     });
 }
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 1; }
@@ -493,7 +537,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
         dispatch_async(dispatch_get_main_queue(), ^{
             sender.enabled = YES;
             if (!ok) { sender.on = !on; wq_alert(self, on ? @"Patch not applied" : @"Patch not restored", error ?: @"Unknown error"); }
-            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:row inSection:1]] withRowAnimation:UITableViewRowAnimationNone];
+            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:row inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
         });
     });
 }
