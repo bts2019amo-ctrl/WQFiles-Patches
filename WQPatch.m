@@ -247,6 +247,10 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 {
     [super viewDidLoad];
     self.title = @"Patches";
+    self.view.backgroundColor = UIColor.clearColor;
+    self.tableView.backgroundColor = UIColor.clearColor;
+    self.tableView.backgroundView = nil;
+    self.tableView.separatorColor = [UIColor.whiteColor colorWithAlphaComponent:0.12];
     UIBarButtonItem *add = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
     self.navigationItem.rightBarButtonItem = add;
     [self reloadPatches];
@@ -268,6 +272,11 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     NSString *path = self.patches[(NSUInteger)indexPath.row]; NSDictionary *m = wq_patch_manifest(path);
     cell.textLabel.text = m[@"Name"] ?: path.lastPathComponent.stringByDeletingPathExtension;
     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"TargetFileName"] ?: m[@"RelativePath"] ?: @"?"];
+    cell.backgroundColor = UIColor.clearColor;
+    cell.contentView.backgroundColor = UIColor.clearColor;
+    cell.textLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.92];
+    cell.detailTextLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.56];
+    cell.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.78];
     UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
     cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.circle.fill" : @"circle"];
     return cell;
