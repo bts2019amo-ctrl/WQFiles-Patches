@@ -4,7 +4,6 @@
 #import "WQUI.h"
 #import <CommonCrypto/CommonDigest.h>
 
-static NSString * const kRemoteTokenKey = @"WQRemotePatchToken";
 static NSString * const kRemoteHubURL = @"https://patchhub-58az32uq.manus.space";
 
 static NSString *wq_remote_sha256(NSData *data)
@@ -14,11 +13,6 @@ static NSString *wq_remote_sha256(NSData *data)
     NSMutableString *hex = [NSMutableString stringWithCapacity:CC_SHA256_DIGEST_LENGTH * 2];
     for (NSUInteger i = 0; i < CC_SHA256_DIGEST_LENGTH; i++) [hex appendFormat:@"%02x", digest[i]];
     return hex;
-}
-
-static NSString *wq_remote_token(void)
-{
-    return [[NSUserDefaults standardUserDefaults] stringForKey:kRemoteTokenKey] ?: @"";
 }
 
 static BOOL wq_remote_valid_filename(NSString *filename)
@@ -90,12 +84,11 @@ static BOOL wq_remote_store(NSDictionary *remote, NSData *payload, NSString **er
     return YES;
 }
 
-static void wq_remote_sync(NSString *token, void (^completion)(BOOL, NSString *))
+static void wq_remote_sync(void (^completion)(BOOL, NSString *))
 {
-    NSURL *endpoint = [NSURL URLWithString:[kRemoteHubURL stringByAppendingString:@"/api/patches/sync"]];
-    if (!endpoint || !token.length) { completion(NO, @"Token do WQ Patch Hub não configurado."); return; }
+    NSURL *endpoint = [NSURL URLWithString:[kRemoteHubURL stringByAppendingString:@"/api/patches/public-sync"]];
+    if (!endpoint) { completion(NO, @"URL do WQ Patch Hub inválida."); return; }
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:endpoint];
-    [request setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
     [request setValue:@"WQFiles/AutoSync" forHTTPHeaderField:@"User-Agent"];
     [[[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *networkError) {
         if (networkError || !data) { completion(NO, networkError.localizedDescription ?: @"Falha de conexão com o hub."); return; }
@@ -116,7 +109,6 @@ static void wq_remote_sync(NSString *token, void (^completion)(BOOL, NSString *)
             if (!downloadURL) continue;
             dispatch_group_enter(group);
             NSMutableURLRequest *download = [NSMutableURLRequest requestWithURL:downloadURL];
-            [download setValue:[NSString stringWithFormat:@"Bearer %@", token] forHTTPHeaderField:@"Authorization"];
             [[[NSURLSession sharedSession] dataTaskWithRequest:download completionHandler:^(NSData *payload, NSURLResponse *__unused downloadResponse, NSError *downloadError) {
                 if (downloadError || !payload) {
                     @synchronized (errors) { [errors addObject:[NSString stringWithFormat:@"%@: download falhou", remote[@"name"] ?: remoteId]]; }
@@ -134,23 +126,9 @@ static void wq_remote_sync(NSString *token, void (^completion)(BOOL, NSString *)
     }] resume];
 }
 
-static void wq_remote_ask_token(UIViewController *presenter, dispatch_block_t completion)
-{
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Ativar sincronização automática" message:@"Cole uma vez o token criado no WQ Patch Hub. A URL já está configurada e os patches serão sincronizados automaticamente." preferredStyle:UIAlertControllerStyleAlert];
-    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.placeholder = @"wqpt_..."; field.secureTextEntry = YES; field.autocapitalizationType = UITextAutocapitalizationTypeNone; field.autocorrectionType = UITextAutocorrectionTypeNo; }];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Agora não" style:UIAlertActionStyleCancel handler:nil]];
-    [alert addAction:[UIAlertAction actionWithTitle:@"Salvar e sincronizar" style:UIAlertActionStyleDefault handler:^(UIAlertAction *__unused action) {
-        NSString *token = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-        if (token.length) { [[NSUserDefaults standardUserDefaults] setObject:token forKey:kRemoteTokenKey]; [[NSUserDefaults standardUserDefaults] synchronize]; wq_remote_sync(token, ^(BOOL ok, NSString *message) { if (!ok) dispatch_async(dispatch_get_main_queue(), ^{ wq_alert(presenter, @"Sincronização falhou", message); }); else if (completion) completion(); }); }
-    }]];
-    [presenter presentViewController:alert animated:YES completion:nil];
-}
-
 void wq_remote_sync_for_view(UIViewController *presenter, dispatch_block_t completion)
 {
-    NSString *token = wq_remote_token();
-    if (!token.length) { wq_remote_ask_token(presenter, completion); return; }
-    wq_remote_sync(token, ^(BOOL ok, NSString *message) {
+    wq_remote_sync(^(BOOL ok, NSString *message) {
         dispatch_async(dispatch_get_main_queue(), ^{ if (!ok) wq_alert(presenter, @"Sincronização automática falhou", message); else if (completion) completion(); });
     });
 }
