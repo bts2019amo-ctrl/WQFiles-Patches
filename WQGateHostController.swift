@@ -68,7 +68,7 @@ private final class WQKeySession: ObservableObject {
             storedKey = key
             if save { writeKey(key) }
         } catch {
-            if !authenticated { error = "Não foi possível verificar a chave. Verifique sua conexão." }
+            if !authenticated { self.error = "Não foi possível verificar a chave. Verifique sua conexão." }
         }
     }
 
@@ -82,7 +82,7 @@ private final class WQKeySession: ObservableObject {
         item[kSecValueData as String] = Data(value.utf8)
         item[kSecReturnData as String] = nil
         item[kSecMatchLimit as String] = nil
-        guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw URLError(.cannotSaveFile) }
+        guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw URLError(.cannotWriteToFile) }
         return value
     }
 
