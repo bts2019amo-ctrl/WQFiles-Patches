@@ -26,6 +26,7 @@
 #import "WQPatch.h"
 #import "WQSettings.h"
 #import "WQGateHostController.h"
+#import "WQTheme.h"
 static BOOL wq_looks_like_uuid(NSString *name)
 {
     return name.length == 36 && [[NSUUID alloc] initWithUUIDString:name] != nil;
@@ -1620,6 +1621,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 {
     [super viewDidLoad];
     self.navigationController.navigationBar.prefersLargeTitles = YES;
+    self.navigationController.navigationBar.tintColor = WQAccentColor();
     self.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableView.estimatedRowHeight = 72.0;
     self.tableView.sectionHeaderHeight = UITableViewAutomaticDimension;
@@ -1719,7 +1721,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     c.text = @"Patches";
     c.secondaryText = @"Aplicar e restaurar patches locais com segurança";
     c.image = [UIImage systemImageNamed:@"wand.and.stars"] ?: [UIImage systemImageNamed:@"square.stack.3d.up.fill"];
-    c.imageProperties.tintColor = UIColor.systemBlueColor;
+    c.imageProperties.tintColor = WQAccentColor();
     cell.contentConfiguration = c;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;

@@ -1,4 +1,5 @@
 #import "WQSettings.h"
+#import "WQTheme.h"
 #import <sys/utsname.h>
 
 @interface WQSettingsViewController ()
@@ -25,6 +26,7 @@
     [super viewDidLoad];
     self.view.backgroundColor = UIColor.systemGroupedBackgroundColor;
     self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
+    self.navigationController.navigationBar.tintColor = WQAccentColor();
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
     self.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableView.estimatedRowHeight = 64.0;
@@ -47,11 +49,11 @@
     [self.tableView reloadData];
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 4; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 5; }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return section == 0 ? 3 : (section == 1 ? 4 : (section == 2 ? 4 : 3));
+    return section == 0 ? 3 : (section == 1 ? 4 : (section == 2 ? 4 : (section == 3 ? 3 : 1)));
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
@@ -59,13 +61,15 @@
     if (section == 0) return @"Compatibilidade";
     if (section == 1) return @"Informações do dispositivo";
     if (section == 2) return @"Sobre o WQ Files";
-    return @"Categorias de patches";
+    if (section == 3) return @"Categorias de patches";
+    return @"Aparência";
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section
 {
     if (section == 0) return @"Compatibilidade validada para iOS 26.0 até iOS 27.2 estável. Recursos de acesso a dados podem variar conforme o sistema e o dispositivo.";
     if (section == 2) return @"Interface redesenhada no estilo iOS 26, mantendo o aplicativo focado em patches locais.";
+    if (section == 4) return @"A cor escolhida é salva neste dispositivo e será usada no login, na escolha do jogo e no WQ Files. A calculadora não é alterada.";
     return nil;
 }
 
@@ -81,7 +85,7 @@
     content.secondaryTextProperties.adjustsFontSizeToFitWidth = NO;
     content.textProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody];
     content.secondaryTextProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
-    content.imageProperties.tintColor = UIColor.systemBlueColor;
+    content.imageProperties.tintColor = WQAccentColor();
     if (indexPath.section == 0) {
         NSArray *compatibility = @[
             @[@"iOS 26.0 – iOS 26.x", @"Compatível · interface e patches locais"],
@@ -112,7 +116,7 @@
         ];
         NSArray *row = rows[(NSUInteger)indexPath.row];
         content.text = row[0]; content.secondaryText = row[1]; content.image = [UIImage systemImageNamed:row[2]];
-    } else {
+    } else if (indexPath.section == 3) {
         NSArray *rows = @[
             @[@"Cache", @"Arquivos temporários e dados armazenados", @"internaldrive.fill"],
             @[@"Avatar / Skin", @"Personalização visual", @"person.crop.circle.fill"],
@@ -120,6 +124,13 @@
         ];
         NSArray *row = rows[(NSUInteger)indexPath.row];
         content.text = row[0]; content.secondaryText = row[1]; content.image = [UIImage systemImageNamed:row[2]];
+    } else {
+        content.text = @"Cor do aplicativo";
+        content.secondaryText = [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQAccentColorName().capitalizedString];
+        content.image = [UIImage systemImageNamed:@"paintpalette.fill"];
+        content.imageProperties.tintColor = WQAccentColor();
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+        cell.selectionStyle = UITableViewCellSelectionStyleDefault;
     }
     cell.contentConfiguration = content;
     return cell;
@@ -128,6 +139,23 @@
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    if (indexPath.section == 4) {
+        NSArray<NSString *> *names = WQAccentColorNames();
+        UIAlertController *picker = [UIAlertController alertControllerWithTitle:@"Cor do aplicativo" message:@"Escolha uma cor para o WQ Files" preferredStyle:UIAlertControllerStyleActionSheet];
+        NSDictionary<NSString *, NSString *> *labels = @{@"blue": @"Azul", @"purple": @"Roxo", @"teal": @"Turquesa", @"orange": @"Laranja", @"pink": @"Rosa"};
+        for (NSString *name in names) {
+            [picker addAction:[UIAlertAction actionWithTitle:labels[name] ?: name.capitalizedString style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
+                WQSetAccentColorName(name);
+                [self.tableView reloadData];
+                self.navigationController.navigationBar.tintColor = WQAccentColor();
+            }]];
+        }
+        [picker addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+        picker.popoverPresentationController.sourceView = self.tableView;
+        picker.popoverPresentationController.sourceRect = [self.tableView rectForRowAtIndexPath:indexPath];
+        [self presentViewController:picker animated:YES completion:nil];
+        return;
+    }
     if (indexPath.section != 0) return;
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Compatibilidade do iOS" message:[NSString stringWithFormat:@"iOS 26.0 até iOS 27.2 estável\nSeu sistema: iOS %@\n\nO WQ Files usa o sistema de patches locais nessas versões.", self.systemVersion] preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];

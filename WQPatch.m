@@ -7,6 +7,7 @@
 #import "WQLaunchServices.h"
 #import "WQUI.h"
 #import "WQSettings.h"
+#import "WQTheme.h"
 #import <CommonCrypto/CommonDigest.h>
 
 static NSString *const kManifest = @"manifest.plist";
@@ -260,6 +261,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     [super viewDidLoad];
     self.title = self.category ?: @"Patches";
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.navigationController.navigationBar.tintColor = WQAccentColor();
     self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
     self.tableView.rowHeight = UITableViewAutomaticDimension;
@@ -305,9 +307,9 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"TargetFileName"] ?: m[@"RelativePath"] ?: @"?"];
     cell.detailTextLabel.textColor = UIColor.secondaryLabelColor;
     cell.detailTextLabel.numberOfLines = 0;
-    UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; toggle.onTintColor = UIColor.systemBlueColor; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
+    UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; toggle.onTintColor = WQAccentColor(); [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
     cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.seal.fill" : @"wand.and.stars"] ?: [UIImage systemImageNamed:@"square.stack.3d.up.fill"];
-    cell.imageView.tintColor = toggle.on ? UIColor.systemGreenColor : UIColor.systemBlueColor;
+    cell.imageView.tintColor = toggle.on ? UIColor.systemGreenColor : WQAccentColor();
     return cell;
 }
 - (void)togglePatch:(UISwitch *)sender
@@ -351,6 +353,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 {
     [super viewDidLoad];
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.navigationController.navigationBar.tintColor = WQAccentColor();
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"arrow.clockwise"] style:UIBarButtonItemStylePlain target:self action:@selector(syncRemote)];
     self.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableView.estimatedRowHeight = 82.0;
