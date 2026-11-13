@@ -412,7 +412,13 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 }
 - (void)showQuickMenu
 {
-    NSArray *items = @[@[@"Avatar", @"Patches de avatar"], @[@"Holograma", @"Patches de holograma"], @[@"Cache", @"Patches de cache"], @[@"Skin", @"Patches de skin"]];
+    NSArray *items = @[
+        @[@"Avatar", @"Patches de avatar"],
+        @[@"Holograma", @"Patches de holograma"],
+        @[@"Cache", @"Patches de cache"],
+        @[@"Skin", @"Patches de skin"],
+        @[@"EXTERNAL", @"Patches externos"],
+    ];
     __weak typeof(self) weakSelf = self;
     WQQuickMenuViewController *menu = [[WQQuickMenuViewController alloc] initWithItems:items selection:^(NSString *category) { [weakSelf selectCategory:category]; }];
     menu.modalPresentationStyle = UIModalPresentationPageSheet;
