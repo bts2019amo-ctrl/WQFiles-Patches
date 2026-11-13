@@ -1,6 +1,7 @@
 #import "WQSettings.h"
 #import "WQTheme.h"
 #import "WQParticleView.h"
+#import "WQLocalization.h"
 #import <sys/utsname.h>
 
 @interface WQSettingsViewController ()
@@ -16,7 +17,7 @@
 {
     self = [super initWithStyle:UITableViewStyleInsetGrouped];
     if (self) {
-        self.title = @"Configurações";
+        self.title = WQLocalized(@"settings", @"Configurações");
         self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
     }
     return self;
@@ -63,14 +64,14 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return section == 0 ? 3 : (section == 1 ? 4 : (section == 2 ? 4 : (section == 3 ? 3 : 3)));
+    return section == 0 ? 3 : (section == 1 ? 4 : (section == 2 ? 4 : (section == 3 ? 3 : 4)));
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
 {
     if (section == 0) return @"Compatibilidade";
     if (section == 1) return @"Informações do dispositivo";
-    if (section == 2) return @"Sobre o WQ Files";
+    if (section == 2) return [NSString stringWithFormat:@"%@ · %@", WQLocalized(@"brand", @"EXTERNAL SYSTEM"), WQLocalized(@"settings", @"Informações")];
     if (section == 3) return @"Categorias de patches";
     return @"Aparência e partículas";
 }
@@ -136,6 +137,7 @@
         content.text = row[0]; content.secondaryText = row[1]; content.image = [UIImage systemImageNamed:row[2]];
     } else {
         NSArray *appearanceRows = @[
+            @[WQLocalized(@"language", @"Idioma"), WQLanguageName(WQCurrentLanguageCode()), @"globe"],
             @[@"Cor do aplicativo", [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQAccentColorName().capitalizedString], @"paintpalette.fill"],
             @[@"Modelo de partículas", [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQParticleStyleName().capitalizedString], @"sparkles"],
             @[@"Modo de aparência", [NSString stringWithFormat:@"Atual: %@ · Toque para alterar", WQAppearanceModeName().capitalizedString], @"moon.stars.fill"]
@@ -156,7 +158,16 @@
 {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     if (indexPath.section == 4) {
-        if (indexPath.row == 1) {
+        if (indexPath.row == 0) {
+            UIAlertController *picker = [UIAlertController alertControllerWithTitle:WQLocalized(@"language", @"Idioma") message:nil preferredStyle:UIAlertControllerStyleActionSheet];
+            for (NSString *code in WQLanguageCodes()) [picker addAction:[UIAlertAction actionWithTitle:WQLanguageName(code) style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) { WQSetLanguageCode(code); self.title = WQLocalized(@"settings", @"Configurações"); [self.tableView reloadData]; }]];
+            [picker addAction:[UIAlertAction actionWithTitle:@"Cancelar" style:UIAlertActionStyleCancel handler:nil]];
+            picker.popoverPresentationController.sourceView = self.tableView;
+            picker.popoverPresentationController.sourceRect = [self.tableView rectForRowAtIndexPath:indexPath];
+            [self presentViewController:picker animated:YES completion:nil];
+            return;
+        }
+        if (indexPath.row == 2) {
             NSDictionary *labels = @{@"constellation": @"Constelação", @"embers": @"Brasas", @"snow": @"Neve", @"orbit": @"Órbita"};
             UIAlertController *picker = [UIAlertController alertControllerWithTitle:@"Modelo de partículas" message:@"Escolha o movimento do fundo animado" preferredStyle:UIAlertControllerStyleActionSheet];
             for (NSString *name in WQParticleStyleNames()) [picker addAction:[UIAlertAction actionWithTitle:labels[name] ?: name.capitalizedString style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) { WQSetParticleStyleName(name); [self.tableView reloadData]; }]];
@@ -166,7 +177,7 @@
             [self presentViewController:picker animated:YES completion:nil];
             return;
         }
-        if (indexPath.row == 2) {
+        if (indexPath.row == 3) {
             NSDictionary *labels = @{@"dark": @"Escuro", @"light": @"Claro", @"auto": @"Automático"};
             UIAlertController *picker = [UIAlertController alertControllerWithTitle:@"Modo de aparência" message:@"O fundo de partículas permanece discreto e animado" preferredStyle:UIAlertControllerStyleActionSheet];
             for (NSString *name in @[ @"dark", @"light", @"auto" ]) [picker addAction:[UIAlertAction actionWithTitle:labels[name] style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) { WQSetAppearanceModeName(name); [self.tableView reloadData]; }]];
@@ -177,7 +188,7 @@
             return;
         }
         NSArray<NSString *> *names = WQAccentColorNames();
-        UIAlertController *picker = [UIAlertController alertControllerWithTitle:@"Cor do aplicativo" message:@"Escolha uma cor para o WQ Files" preferredStyle:UIAlertControllerStyleActionSheet];
+        UIAlertController *picker = [UIAlertController alertControllerWithTitle:@"Cor do aplicativo" message:[NSString stringWithFormat:@"%@", WQLocalized(@"colorMessage", @"Escolha uma cor para o EXTERNAL SYSTEM")] preferredStyle:UIAlertControllerStyleActionSheet];
         NSDictionary<NSString *, NSString *> *labels = @{@"blue": @"Azul", @"purple": @"Roxo", @"teal": @"Turquesa", @"orange": @"Laranja", @"pink": @"Rosa", @"mint": @"Menta", @"indigo": @"Índigo", @"red": @"Vermelho", @"yellow": @"Amarelo"};
         for (NSString *name in names) {
             [picker addAction:[UIAlertAction actionWithTitle:labels[name] ?: name.capitalizedString style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction *action) {
@@ -193,7 +204,7 @@
         return;
     }
     if (indexPath.section != 0) return;
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Compatibilidade do iOS" message:[NSString stringWithFormat:@"iOS 26.0 até iOS 27.2 estável\nSeu sistema: iOS %@\n\nO WQ Files usa o sistema de patches locais nessas versões.", self.systemVersion] preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Compatibilidade do iOS" message:[NSString stringWithFormat:@"iOS 26.0 até iOS 27.2 estável\nSeu sistema: iOS %@\n\n%@", self.systemVersion, WQLocalized(@"compatMessage", @"O EXTERNAL SYSTEM usa o sistema de patches locais nessas versões.")] preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }

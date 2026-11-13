@@ -136,6 +136,7 @@ private struct WQSwiftParticleBackground: View {
 private struct WQLoginView: View {
     @ObservedObject var session: WQKeySession
     @State private var key = ""
+    @AppStorage("WQLanguageCode") private var language = "pt-BR"
     @State private var visible = false
     private var accent: Color {
         switch UserDefaults.standard.string(forKey: "WQAccentColorName") {
@@ -154,22 +155,30 @@ private struct WQLoginView: View {
         ZStack {
             LinearGradient(colors: [.black, Color(red: 0.08, green: 0.09, blue: 0.12)], startPoint: .top, endPoint: .bottom).ignoresSafeArea()
             WQSwiftParticleBackground()
-            VStack(spacing: 22) {
+            VStack(spacing: 18) {
                 Spacer()
-                Image(systemName: "lock.shield.fill").font(.system(size: 62)).foregroundStyle(.white)
-                Text("ACESSO LICENCIADO").font(.system(size: 13, weight: .heavy, design: .rounded)).tracking(2).foregroundStyle(.white.opacity(0.72))
-                Text("WQ FILES").font(.system(size: 30, weight: .black, design: .rounded)).foregroundStyle(.white)
+                if let path = Bundle.main.path(forResource: "ExternalSystemLogin", ofType: "png"), let image = UIImage(contentsOfFile: path) {
+                    Image(uiImage: image).resizable().scaledToFill().frame(width: 112, height: 112).clipShape(RoundedRectangle(cornerRadius: 28)).overlay(RoundedRectangle(cornerRadius: 28).stroke(.white.opacity(0.22), lineWidth: 1))
+                }
+                Text(language == "en" ? "LICENSED ACCESS" : language == "ja" ? "ライセンスアクセス" : "ACESSO LICENCIADO").font(.system(size: 13, weight: .heavy, design: .rounded)).tracking(2).foregroundStyle(.white.opacity(0.72))
+                Text("EXTERNAL SYSTEM").font(.system(size: 30, weight: .black, design: .rounded)).foregroundStyle(.white)
                 HStack {
                     Image(systemName: "key.fill").foregroundStyle(.white.opacity(0.8))
-                    Group { visible ? AnyView(TextField("Digite sua key iOS", text: $key)) : AnyView(SecureField("Digite sua key iOS", text: $key)) }
+                    Group { visible ? AnyView(TextField(language == "en" ? "Enter your iOS key" : language == "ja" ? "iOSキーを入力" : "Digite sua key iOS", text: $key)) : AnyView(SecureField(language == "en" ? "Enter your iOS key" : language == "ja" ? "iOSキーを入力" : "Digite sua key iOS", text: $key)) }
                         .textInputAutocapitalization(.never).autocorrectionDisabled().foregroundStyle(.white)
                     Button { visible.toggle() } label: { Image(systemName: visible ? "eye.slash.fill" : "eye.fill").foregroundStyle(.white.opacity(0.7)) }
                 }
                 .padding(.horizontal, 15).frame(height: 54).background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.16)))
             Button { session.submit(key) } label: {
-                    HStack { if session.checking { ProgressView().tint(.white) }; Text(session.checking ? "VALIDANDO..." : "VALIDAR KEY").fontWeight(.bold) }
+                    HStack { if session.checking { ProgressView().tint(.white) }; Text(session.checking ? (language == "en" ? "VALIDATING..." : language == "ja" ? "確認中..." : "VALIDANDO...") : (language == "en" ? "VALIDATE KEY" : language == "ja" ? "キーを確認" : "VALIDAR KEY")).fontWeight(.bold) }
                         .frame(maxWidth: .infinity, minHeight: 52).foregroundStyle(.white).background(accent, in: RoundedRectangle(cornerRadius: 14))
                 }.disabled(session.checking).task { session.restoreIfAvailable() }
+                Picker(language == "en" ? "Language" : language == "ja" ? "言語" : "Idioma", selection: $language) {
+                    Text("Português (Brasil)").tag("pt-BR")
+                    Text("English").tag("en")
+                    Text("日本語").tag("ja")
+                    Text("Português (Portugal)").tag("pt-PT")
+                }.pickerStyle(.menu).tint(.white).frame(maxWidth: .infinity, alignment: .center)
                 if let error = session.error { Text(error).font(.footnote).foregroundStyle(.red.opacity(0.9)).multilineTextAlignment(.center) }
                 Spacer()
             }.padding(24).frame(maxWidth: 440)
@@ -179,6 +188,7 @@ private struct WQLoginView: View {
 
 private struct WQGameSelectionView: View {
     let onContinue: (WQSelectedGame) -> Void
+    @AppStorage("WQLanguageCode") private var language = "pt-BR"
     @State private var selected: WQSelectedGame = .normal
     private var accent: Color {
         switch UserDefaults.standard.string(forKey: "WQAccentColorName") {
@@ -199,14 +209,14 @@ private struct WQGameSelectionView: View {
             WQSwiftParticleBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("SELECIONE SEU JOGO").font(.system(size: 12, weight: .heavy, design: .rounded)).tracking(1.5).foregroundStyle(accent)
-                    Text("Escolha a versão instalada").font(.system(size: 29, weight: .bold, design: .rounded))
-                    Text("Os patches exibidos serão referentes ao jogo selecionado.").foregroundStyle(.secondary)
+                    Text(language == "en" ? "SELECT YOUR GAME" : language == "ja" ? "ゲームを選択" : "SELECIONE SEU JOGO").font(.system(size: 12, weight: .heavy, design: .rounded)).tracking(1.5).foregroundStyle(accent)
+                    Text(language == "en" ? "Choose the installed version" : language == "ja" ? "インストール済みのバージョンを選択" : "Escolha a versão instalada").font(.system(size: 29, weight: .bold, design: .rounded))
+                    Text(language == "en" ? "Displayed patches match the selected game." : language == "ja" ? "表示されるパッチは選択したゲームに対応します。" : "Os patches exibidos serão referentes ao jogo selecionado.").foregroundStyle(.secondary)
                     VStack(spacing: 12) {
-                        gameRow(.normal, title: "Free Fire", subtitle: "EDIÇÃO PADRÃO", image: "FreeFireNormal")
-                        gameRow(.max, title: "Free Fire MAX", subtitle: "EDIÇÃO MAX", image: "FreeFireMax")
+                        gameRow(.normal, title: "Free Fire", subtitle: language == "en" ? "STANDARD EDITION" : language == "ja" ? "通常版" : "EDIÇÃO PADRÃO", image: "FreeFireNormal")
+                        gameRow(.max, title: "Free Fire MAX", subtitle: language == "en" ? "MAX EDITION" : language == "ja" ? "MAX版" : "EDIÇÃO MAX", image: "FreeFireMax")
                     }.padding(16).background(.background, in: RoundedRectangle(cornerRadius: 22)).overlay(RoundedRectangle(cornerRadius: 22).stroke(.quaternary))
-                    Button { onContinue(selected) } label: { Label("CONTINUAR", systemImage: "arrow.right").fontWeight(.bold).frame(maxWidth: .infinity, minHeight: 54).foregroundStyle(.white).background(accent, in: RoundedRectangle(cornerRadius: 16)) }
+                    Button { onContinue(selected) } label: { Label(language == "en" ? "CONTINUE" : language == "ja" ? "続ける" : "CONTINUAR", systemImage: "arrow.right").fontWeight(.bold).frame(maxWidth: .infinity, minHeight: 54).foregroundStyle(.white).background(accent, in: RoundedRectangle(cornerRadius: 16)) }
                 }.padding(22)
             }
         }

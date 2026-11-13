@@ -27,6 +27,7 @@
 #import "WQSettings.h"
 #import "WQGateHostController.h"
 #import "WQTheme.h"
+#import "WQLocalization.h"
 #import "WQParticleView.h"
 static BOOL wq_looks_like_uuid(NSString *name)
 {
@@ -1609,7 +1610,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 - (instancetype)init
 {
     if ((self = [super initWithStyle:UITableViewStyleInsetGrouped])) {
-        self.title = @"WQ Files";
+        self.title = WQLocalized(@"brand", @"EXTERNAL SYSTEM");
         _locations = @[
             @[@"App Data", @"/private/var/mobile/Containers/Data/Application", @"square.grid.2x2"],
             @[@"App Groups", @"/private/var/mobile/Containers/Shared/AppGroup", @"square.stack.3d.up"],
@@ -1676,7 +1677,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 {
     UIView *footer = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 128)];
     UILabel *by = [UILabel new];
-    by.text = @"WQ Files by kolbicz";
+    by.text = WQLocalized(@"brand", @"EXTERNAL SYSTEM");
     by.font = [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote];
     by.textColor = UIColor.secondaryLabelColor;
 
@@ -1727,7 +1728,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
 {
-    return @"WQ FILES";
+    return WQLocalized(@"brand", @"EXTERNAL SYSTEM");
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section

@@ -8,6 +8,7 @@
 #import "WQUI.h"
 #import "WQSettings.h"
 #import "WQTheme.h"
+#import "WQLocalization.h"
 #import <CommonCrypto/CommonDigest.h>
 
 static NSString *const kManifest = @"manifest.plist";
@@ -306,8 +307,8 @@ BOOL wq_patch_is_applied(NSString *patchPath)
                 UIView *empty = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.tableView.bounds.size.width, 240)];
                 UIImageView *icon = [[UIImageView alloc] initWithImage:WQProfessionalIcon(@"square.stack.3d.up.slash", WQAccentColor(), CGSizeMake(72, 72))];
                 icon.translatesAutoresizingMaskIntoConstraints = NO;
-                UILabel *title = [UILabel new]; title.text = @"Nenhum patch disponível"; title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold]; title.textAlignment = NSTextAlignmentCenter;
-                UILabel *detail = [UILabel new]; detail.text = @"Sincronize novamente ou escolha outra categoria."; detail.textColor = UIColor.secondaryLabelColor; detail.textAlignment = NSTextAlignmentCenter; detail.numberOfLines = 0;
+                UILabel *title = [UILabel new]; title.text = WQLocalized(@"empty", @"Nenhum patch disponível"); title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold]; title.textAlignment = NSTextAlignmentCenter;
+                UILabel *detail = [UILabel new]; detail.text = WQLocalized(@"emptyDetail", @"Sincronize novamente ou escolha outra categoria."); detail.textColor = UIColor.secondaryLabelColor; detail.textAlignment = NSTextAlignmentCenter; detail.numberOfLines = 0;
                 UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[icon, title, detail]]; stack.axis = UILayoutConstraintAxisVertical; stack.alignment = UIStackViewAlignmentCenter; stack.spacing = 10; stack.translatesAutoresizingMaskIntoConstraints = NO;
                 [empty addSubview:stack]; [NSLayoutConstraint activateConstraints:@[[stack.centerXAnchor constraintEqualToAnchor:empty.centerXAnchor], [stack.centerYAnchor constraintEqualToAnchor:empty.centerYAnchor], [stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:empty.leadingAnchor constant:28], [stack.trailingAnchor constraintLessThanOrEqualToAnchor:empty.trailingAnchor constant:-28]]];
                 self.tableView.backgroundView = empty;
@@ -379,7 +380,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 @implementation WQPatchCategoryViewController
 - (instancetype)init
 {
-    if ((self = [super initWithStyle:UITableViewStyleInsetGrouped])) self.title = @"Patches";
+    if ((self = [super initWithStyle:UITableViewStyleInsetGrouped])) self.title = WQLocalized(@"patches", @"Patches");
     return self;
 }
 - (void)viewDidLoad
@@ -423,7 +424,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     ];
 }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.categories.count; }
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section { return @"Categorias de patches"; }
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section { return WQLocalized(@"patches", @"Categorias de patches"); }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section { return @"Entre em uma categoria para adicionar, ativar ou restaurar seus patches."; }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
 {
