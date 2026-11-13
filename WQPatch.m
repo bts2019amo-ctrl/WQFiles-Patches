@@ -420,10 +420,10 @@ BOOL wq_patch_prune_remote_not_in(NSArray<NSNumber *> *activeRemoteIDs, NSString
 {
     [super viewDidLoad];
     self.title = @"Patches";
-    self.view.backgroundColor = UIColor.clearColor;
-    self.tableView.backgroundColor = UIColor.clearColor;
+    self.view.backgroundColor = [WQRemoteSync themeColorForKey:@"backgroundColor" fallback:UIColor.clearColor];
+    self.tableView.backgroundColor = [WQRemoteSync themeColorForKey:@"backgroundColor" fallback:UIColor.clearColor];
     self.tableView.backgroundView = nil;
-    self.tableView.separatorColor = [UIColor.whiteColor colorWithAlphaComponent:0.12];
+    self.tableView.separatorColor = [[WQRemoteSync themeColorForKey:@"borderColor" fallback:UIColor.whiteColor] colorWithAlphaComponent:0.55];
     self.menuItems = @[
         @[@"Cache", @"archivebox"],
         @[@"Avatar", @"person.crop.circle"],
@@ -474,10 +474,10 @@ BOOL wq_patch_prune_remote_not_in(NSArray<NSNumber *> *activeRemoteIDs, NSString
     cell.accessoryType = UITableViewCellAccessoryNone;
     cell.detailTextLabel.text = nil;
     cell.imageView.image = nil;
-    cell.backgroundColor = UIColor.clearColor;
-    cell.contentView.backgroundColor = UIColor.clearColor;
-    cell.textLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.92];
-    cell.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.78];
+    cell.backgroundColor = [WQRemoteSync themeColorForKey:@"surfaceColor" fallback:UIColor.clearColor];
+    cell.contentView.backgroundColor = [WQRemoteSync themeColorForKey:@"surfaceColor" fallback:UIColor.clearColor];
+    cell.textLabel.textColor = [WQRemoteSync themeColorForKey:@"textColor" fallback:[UIColor.whiteColor colorWithAlphaComponent:0.92]];
+    cell.tintColor = [WQRemoteSync themeColorForKey:@"accentColor" fallback:[UIColor.whiteColor colorWithAlphaComponent:0.78]];
     if (indexPath.section == 0) {
         if (indexPath.row == 0) {
             cell.textLabel.text = @"Menu";
@@ -498,17 +498,23 @@ BOOL wq_patch_prune_remote_not_in(NSArray<NSNumber *> *activeRemoteIDs, NSString
     NSString *path = self.patches[(NSUInteger)indexPath.row]; NSDictionary *m = wq_patch_manifest(path);
     cell.textLabel.text = m[@"Name"] ?: path.lastPathComponent.stringByDeletingPathExtension;
     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"TargetFileName"] ?: m[@"RelativePath"] ?: @"?"];
-    cell.detailTextLabel.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.56];
+    cell.detailTextLabel.textColor = [WQRemoteSync themeColorForKey:@"mutedColor" fallback:[UIColor.whiteColor colorWithAlphaComponent:0.56]];
     UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
     cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.circle.fill" : @"circle"];
     return cell;
 }
 - (void)togglePatch:(UISwitch *)sender
 {
+    if ([WQRemoteSync shared].isBlocked) {
+        sender.on = !sender.isOn;
+        sender.enabled = YES;
+        wq_alert(self, @"Ação bloqueada", @"O app está em manutenção ou precisa da nova IPA antes de aplicar patches.");
+        return;
+    }
     NSInteger row = sender.tag; if (row < 0 || row >= (NSInteger)self.patches.count) return;
     NSString *path = self.patches[(NSUInteger)row]; BOOL on = sender.isOn; sender.enabled = NO;
     dispatch_async(wq_io(), ^{
-        NSString *error = nil; BOOL ok = on ? wq_patch_apply(path, &error) : wq_patch_restore(path, &error);
+        NSString *error = nil; BOOL ok = ![WQRemoteSync shared].isBlocked && (on ? wq_patch_apply(path, &error) : wq_patch_restore(path, &error));
         dispatch_async(dispatch_get_main_queue(), ^{
             sender.enabled = YES;
             if (!ok) { sender.on = !on; wq_alert(self, on ? @"Patch not applied" : @"Patch not restored", error ?: @"Unknown error"); }
