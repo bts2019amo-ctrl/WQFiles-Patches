@@ -300,7 +300,20 @@ BOOL wq_patch_is_applied(NSString *patchPath)
             if ([category isEqualToString:self.category] && wq_patch_matches_selected_game(manifest[@"BundleID"])) [paths addObject:path];
         }
         [paths sortUsingComparator:^NSComparisonResult(NSString *a, NSString *b) { return [a.lastPathComponent localizedCaseInsensitiveCompare:b.lastPathComponent]; }];
-        dispatch_async(dispatch_get_main_queue(), ^{ self.patches = paths; [self.tableView reloadData]; });
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.patches = paths;
+            if (paths.count == 0) {
+                UIView *empty = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.tableView.bounds.size.width, 240)];
+                UIImageView *icon = [[UIImageView alloc] initWithImage:WQProfessionalIcon(@"square.stack.3d.up.slash", WQAccentColor(), CGSizeMake(72, 72))];
+                icon.translatesAutoresizingMaskIntoConstraints = NO;
+                UILabel *title = [UILabel new]; title.text = @"Nenhum patch disponível"; title.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold]; title.textAlignment = NSTextAlignmentCenter;
+                UILabel *detail = [UILabel new]; detail.text = @"Sincronize novamente ou escolha outra categoria."; detail.textColor = UIColor.secondaryLabelColor; detail.textAlignment = NSTextAlignmentCenter; detail.numberOfLines = 0;
+                UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[icon, title, detail]]; stack.axis = UILayoutConstraintAxisVertical; stack.alignment = UIStackViewAlignmentCenter; stack.spacing = 10; stack.translatesAutoresizingMaskIntoConstraints = NO;
+                [empty addSubview:stack]; [NSLayoutConstraint activateConstraints:@[[stack.centerXAnchor constraintEqualToAnchor:empty.centerXAnchor], [stack.centerYAnchor constraintEqualToAnchor:empty.centerYAnchor], [stack.leadingAnchor constraintGreaterThanOrEqualToAnchor:empty.leadingAnchor constant:28], [stack.trailingAnchor constraintLessThanOrEqualToAnchor:empty.trailingAnchor constant:-28]]];
+                self.tableView.backgroundView = empty;
+            } else self.tableView.backgroundView = nil;
+            [self.tableView reloadData];
+        });
     });
 }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.patches.count; }
@@ -327,10 +340,19 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 {
     NSInteger row = sender.tag; if (row < 0 || row >= (NSInteger)self.patches.count) return;
     NSString *path = self.patches[(NSUInteger)row]; BOOL on = sender.isOn; sender.enabled = NO;
+    NSIndexPath *indexPath = [NSIndexPath indexPathForRow:row inSection:0];
+    UITableViewCell *cell = [self.tableView cellForRowAtIndexPath:indexPath];
+    UIProgressView *progress = [[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];
+    progress.progressTintColor = WQAccentColor(); progress.trackTintColor = UIColor.tertiarySystemFillColor; progress.progress = 0.08; progress.translatesAutoresizingMaskIntoConstraints = NO;
+    [cell.contentView addSubview:progress];
+    [NSLayoutConstraint activateConstraints:@[[progress.leadingAnchor constraintEqualToAnchor:cell.contentView.leadingAnchor constant:16], [progress.trailingAnchor constraintEqualToAnchor:cell.contentView.trailingAnchor constant:-16], [progress.bottomAnchor constraintEqualToAnchor:cell.contentView.bottomAnchor constant:-3], [progress.heightAnchor constraintEqualToConstant:2]]];
+    [UIView animateWithDuration:0.35 animations:^{ progress.progress = 0.82; }];
     dispatch_async(wq_io(), ^{
         NSString *error = nil; BOOL ok = on ? wq_patch_apply(path, &error) : wq_patch_restore(path, &error);
         dispatch_async(dispatch_get_main_queue(), ^{
             sender.enabled = YES;
+            progress.progress = ok ? 1.0 : 0.0;
+            [progress removeFromSuperview];
             if (!ok) { sender.on = !on; wq_alert(self, on ? @"Patch not applied" : @"Patch not restored", error ?: @"Unknown error"); }
             [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:row inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
         });
