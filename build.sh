@@ -61,7 +61,7 @@ OBJC_FLAGS=(-fobjc-arc -fmodules -fmodules-cache-path="$OUT/ModuleCache" -arch a
     -miphoneos-version-min="$MINIMUM_IOS_VERSION"
     -isysroot "$SDK" -Wall -Wextra -Werror -O2)
 OBJC_SOURCES=(WQCore.m WQAccess.m WQLaunchServices.m WQUI.m WQSharing.m WQApps.m WQCache.m WQPlistEditor.m WQHexViewer.m WQPatch.m WQSettings.m main.m)
-if [[ -f WQCalculadoraIPhoneView.swift && -f WQGateHostController.swift ]]; then
+if [[ -f WQCalculadoraIPhoneView.swift && -f WQGateHostController.swift && "${WQ_SKIP_PREFLIGHT:-0}" != 1 ]]; then
     OBJC_OBJECTS=()
     for source in "${OBJC_SOURCES[@]}"; do
         object="$OUT/$(basename "${source%.m}").o"
