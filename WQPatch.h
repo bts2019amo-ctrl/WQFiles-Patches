@@ -20,4 +20,6 @@ BOOL wq_patch_is_applied(NSString *patchPath);
 @interface WQPatchCategoryViewController : UITableViewController
 @end
 
+void wq_remote_sync(UIViewController *host, void (^ _Nullable completion)(NSString *message));
+
 NS_ASSUME_NONNULL_END

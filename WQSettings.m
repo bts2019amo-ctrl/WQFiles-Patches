@@ -51,7 +51,7 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return section == 0 ? 3 : (section == 1 ? 4 : 3);
+    return section == 0 ? 3 : (section == 1 ? 4 : (section == 2 ? 4 : 3));
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
@@ -107,7 +107,8 @@
         NSArray *rows = @[
             @[@"Versão do aplicativo", self.appVersion, @"app.badge"],
             @[@"Patches locais", @"Aplicação e restauração seguras", @"square.stack.3d.up.fill"],
-            @[@"Interface", @"Visual nativo inspirado no iOS 26", @"paintbrush.pointed.fill"]
+            @[@"Interface", @"Visual nativo inspirado no iOS 26", @"paintbrush.pointed.fill"],
+            @[@"Sincronização remota", @"Catálogo público automático, sem token", @"arrow.triangle.2.circlepath"]
         ];
         NSArray *row = rows[(NSUInteger)indexPath.row];
         content.text = row[0]; content.secondaryText = row[1]; content.image = [UIImage systemImageNamed:row[2]];

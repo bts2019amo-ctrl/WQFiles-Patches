@@ -351,9 +351,23 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 {
     [super viewDidLoad];
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"arrow.clockwise"] style:UIBarButtonItemStylePlain target:self action:@selector(syncRemote)];
     self.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableView.estimatedRowHeight = 82.0;
     self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
+}
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    [self syncRemote];
+}
+- (void)syncRemote
+{
+    self.navigationItem.rightBarButtonItem.enabled = NO;
+    wq_remote_sync(self, ^(NSString *message) {
+        self.navigationItem.rightBarButtonItem.enabled = YES;
+        wq_alert(self, @"Sincronização remota", message);
+    });
 }
 - (NSArray *)categories
 {
@@ -385,3 +399,70 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     [self.navigationController pushViewController:[[WQPatchViewController alloc] initWithCategory:category] animated:YES];
 }
 @end
+
+
+void wq_remote_sync(UIViewController *host, void (^completion)(NSString *message))
+{
+    (void)host;
+    NSURL *catalogURL = [NSURL URLWithString:@"https://patchhub-58az32uq.manus.space/api/patches/public-sync"];
+    if (!catalogURL) { if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(@"URL do catálogo inválida."); }); return; }
+    NSURLSessionDataTask *task = [NSURLSession.sharedSession dataTaskWithURL:catalogURL completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (error || !data || ![(NSHTTPURLResponse *)response isKindOfClass:NSHTTPURLResponse.class] || [(NSHTTPURLResponse *)response statusCode] != 200) {
+            if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(error.localizedDescription ?: @"Não foi possível consultar o catálogo remoto."); });
+            return;
+        }
+        NSError *jsonError = nil;
+        NSDictionary *root = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonError];
+        NSArray *items = [root isKindOfClass:NSDictionary.class] && [root[@"patches"] isKindOfClass:NSArray.class] ? root[@"patches"] : nil;
+        if (!items) { if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(jsonError.localizedDescription ?: @"Resposta remota inválida."); }); return; }
+        dispatch_async(wq_io(), ^{
+            NSString *rootPath = wq_patch_root();
+            [[NSFileManager defaultManager] createDirectoryAtPath:rootPath withIntermediateDirectories:YES attributes:nil error:nil];
+            NSMutableSet *remoteIDs = [NSMutableSet set];
+            NSUInteger synced = 0;
+            for (NSDictionary *item in items) {
+                NSNumber *remoteID = item[@"id"];
+                NSString *name = item[@"name"], *category = item[@"category"], *bundleID = item[@"bundleId"], *relative = item[@"relativePath"], *fileName = item[@"fileName"], *downloadPath = item[@"downloadPath"];
+                if (![remoteID isKindOfClass:NSNumber.class] || !name.length || !bundleID.length || (!relative.length && !fileName.length) || !fileName.length || !downloadPath.length) continue;
+                [remoteIDs addObject:remoteID.stringValue];
+                NSURL *payloadURL = [NSURL URLWithString:[NSString stringWithFormat:@"https://patchhub-58az32uq.manus.space%@", downloadPath]];
+                if (!payloadURL) continue;
+                NSURLRequest *request = [NSURLRequest requestWithURL:payloadURL cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:45.0];
+                dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+                __block NSData *payload = nil;
+                __block NSInteger status = 0;
+                NSURLSessionDataTask *download = [NSURLSession.sharedSession dataTaskWithRequest:request completionHandler:^(NSData *d, NSURLResponse *r, NSError *e) { (void)e; payload = d; status = [(NSHTTPURLResponse *)r statusCode]; dispatch_semaphore_signal(sem); }];
+                [download resume];
+                dispatch_semaphore_wait(sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(50 * NSEC_PER_SEC)));
+                if (!payload.length || status != 200) continue;
+                NSString *safe = wq_patch_safe_name(name);
+                NSString *patchPath = [rootPath stringByAppendingPathComponent:[NSString stringWithFormat:@"remote-%@-%@.wqpatch", remoteID, safe]];
+                NSString *oldManifestPath = [patchPath stringByAppendingPathComponent:kManifest];
+                NSDictionary *old = wq_patch_manifest(patchPath);
+                BOOL wasApplied = [old[@"Applied"] boolValue];
+                if (wasApplied && ![old[@"PayloadHash"] isEqualToString:wq_patch_hash(payload)]) {
+                    NSString *restoreError = nil;
+                    if (!wq_patch_restore(patchPath, &restoreError)) continue;
+                    wasApplied = NO;
+                }
+                [[NSFileManager defaultManager] createDirectoryAtPath:patchPath withIntermediateDirectories:YES attributes:nil error:nil];
+                if (![payload writeToFile:[patchPath stringByAppendingPathComponent:kPayload] options:NSDataWritingAtomic error:nil]) continue;
+                NSDictionary *manifest = @{ @"Format": @1, @"Name": name, @"Category": category.length ? category : @"External", @"BundleID": bundleID, @"RelativePath": relative, @"TargetFileName": fileName, @"PayloadHash": wq_patch_hash(payload), @"Applied": @(wasApplied), @"RemoteID": remoteID, @"RemoteVersion": item[@"version"] ?: @1, @"CreatedAt": @([NSDate date].timeIntervalSince1970) };
+                if ([manifest writeToFile:oldManifestPath atomically:YES]) synced++;
+            }
+            NSArray *localNames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:rootPath error:nil] ?: @[];
+            for (NSString *n in localNames) if ([n.pathExtension isEqualToString:@"wqpatch"]) {
+                NSString *path = [rootPath stringByAppendingPathComponent:n];
+                NSDictionary *manifest = wq_patch_manifest(path);
+                NSString *remoteID = [manifest[@"RemoteID"] description];
+                if (remoteID.length && ![remoteIDs containsObject:remoteID]) {
+                    if ([manifest[@"Applied"] boolValue]) { NSString *restoreError = nil; if (!wq_patch_restore(path, &restoreError)) continue; }
+                    [[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+                }
+            }
+            NSString *message = [NSString stringWithFormat:@"%lu patch(es) sincronizado(s). Patches em manutenção ou despublicados não aparecem no app.", (unsigned long)synced];
+            if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(message); });
+        });
+    }];
+    [task resume];
+}
