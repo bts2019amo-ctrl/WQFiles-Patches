@@ -3,6 +3,7 @@
 // GPL-3.0-or-later.
 //
 #import "WQPatch.h"
+#import "WQRemotePatch.h"
 #import "WQAccess.h"
 #import "WQLaunchServices.h"
 #import "WQUI.h"
@@ -218,7 +219,9 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 {
     [super viewDidLoad];
     self.title = @"Patches";
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
+    UIBarButtonItem *add = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
+    UIBarButtonItem *remote = [[UIBarButtonItem alloc] initWithTitle:@"Remote" style:UIBarButtonItemStylePlain target:self action:@selector(openRemoteSync)];
+    self.navigationItem.rightBarButtonItems = @[add, remote];
     [self reloadPatches];
 }
 - (void)reloadPatches
@@ -254,6 +257,11 @@ BOOL wq_patch_is_applied(NSString *patchPath)
             [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:row inSection:0]] withRowAnimation:UITableViewRowAnimationNone];
         });
     });
+}
+- (void)openRemoteSync
+{
+    __weak WQPatchViewController *weakSelf = self;
+    wq_remote_present_sync(self, ^{ [weakSelf reloadPatches]; });
 }
 - (void)addPatch
 {
