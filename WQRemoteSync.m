@@ -203,7 +203,7 @@ NSString * const WQRemoteSyncDidApplyThemeNotification = @"WQRemoteSyncDidApplyT
 {
     BOOL maintenance = [app[@"maintenanceActive"] boolValue];
     NSInteger requiredBuild = [update[@"requiredBuild"] integerValue];
-    NSInteger currentBuild = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"].integerValue;
+    NSInteger currentBuild = [(NSNumber *)[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"] integerValue];
     BOOL needsUpdate = requiredBuild > 0 && requiredBuild > currentBuild;
     if (!maintenance && !needsUpdate) return;
     NSString *kind = needsUpdate ? @"update" : @"maintenance";
