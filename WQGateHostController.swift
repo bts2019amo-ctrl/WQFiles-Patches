@@ -157,7 +157,7 @@ private struct WQLoginView: View {
             WQSwiftParticleBackground()
             VStack(spacing: 18) {
                 Spacer()
-                if let path = Bundle.main.path(forResource: "ExternalSystemLogin", ofType: "png"), let image = UIImage(contentsOfFile: path) {
+                if let image = UIImage(named: "ExternalSystemLogin") ?? (Bundle.main.path(forResource: "ExternalSystemLogin", ofType: "png").flatMap { UIImage(contentsOfFile: $0) }) {
                     Image(uiImage: image).resizable().scaledToFill().frame(width: 112, height: 112).clipShape(RoundedRectangle(cornerRadius: 28)).overlay(RoundedRectangle(cornerRadius: 28).stroke(.white.opacity(0.22), lineWidth: 1))
                 }
                 Text(language == "en" ? "LICENSED ACCESS" : language == "ja" ? "ライセンスアクセス" : "ACESSO LICENCIADO").font(.system(size: 13, weight: .heavy, design: .rounded)).tracking(2).foregroundStyle(.white.opacity(0.72))
