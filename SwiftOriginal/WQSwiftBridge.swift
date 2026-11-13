@@ -23,16 +23,25 @@ private struct WQOriginalEntryView: View {
 
 private struct WQDeferredLoginView: View {
     let onAuthenticated: () -> Void
-    @StateObject private var session = IOSKeySession()
+    @State private var session: IOSKeySession?
 
     var body: some View {
-        IOSKeyLoginView(session: session)
-            .onAppear {
-                // This view is instantiated only after the calculator callback.
-                session.passCalculatorGate()
+        Group {
+            if let session {
+                IOSKeyLoginView(session: session)
+            } else {
+                ProgressView()
             }
-            .onChange(of: session.isAuthenticated) { authenticated in
-                if authenticated { onAuthenticated() }
+        }
+            .onAppear {
+                // The key session is created only when this login screen is visible.
+                guard session == nil else { return }
+                let created = IOSKeySession()
+                created.passCalculatorGate()
+                session = created
+            }
+            .onChange(of: session?.isAuthenticated) { authenticated in
+                if authenticated == true { onAuthenticated() }
             }
     }
 }

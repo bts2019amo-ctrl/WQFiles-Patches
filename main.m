@@ -1623,14 +1623,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     self.tableView.backgroundColor = UIColor.clearColor;
     UIView *particles = [[NSClassFromString(@"WQParticleBackgroundView") alloc] initWithFrame:CGRectZero];
     if (particles) {
-        particles.translatesAutoresizingMaskIntoConstraints = NO;
-        [self.view insertSubview:particles atIndex:0];
-        [NSLayoutConstraint activateConstraints:@[
-            [particles.topAnchor constraintEqualToAnchor:self.view.topAnchor],
-            [particles.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-            [particles.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
-            [particles.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        ]];
+        self.tableView.backgroundView = particles;
     }
     self.tableView.tableFooterView = [self authorFooter];
     dispatch_async(wq_io(), ^{
