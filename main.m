@@ -1544,10 +1544,21 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 @end
 
 @implementation WQNavigationController
-
 - (void)viewDidLoad
 {
     [super viewDidLoad];
+    self.view.backgroundColor = UIColor.clearColor;
+    UIView *particles = [[NSClassFromString(@"WQParticleBackgroundView") alloc] initWithFrame:CGRectZero];
+    if (particles) {
+        particles.translatesAutoresizingMaskIntoConstraints = NO;
+        [self.view insertSubview:particles atIndex:0];
+        [NSLayoutConstraint activateConstraints:@[
+            [particles.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+            [particles.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+            [particles.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+            [particles.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        ]];
+    }
     self.delegate = self;
     self.interactivePopGestureRecognizer.delegate = self;
 }
@@ -1631,11 +1642,17 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     self.view.backgroundColor = UIColor.clearColor;
     self.tableView.backgroundColor = UIColor.clearColor;
     self.tableView.separatorColor = [UIColor.whiteColor colorWithAlphaComponent:0.12];
-    UIView *particles = [[NSClassFromString(@"WQParticleBackgroundView") alloc] initWithFrame:CGRectZero];
-    if (particles) {
-        self.tableView.backgroundView = particles;
-    }
-    self.tableView.tableFooterView = [self authorFooter];
+    UILabel *developer = [UILabel new];
+    developer.translatesAutoresizingMaskIntoConstraints = NO;
+    developer.text = @"Desenvolvido by: PROXY SYSTEM";
+    developer.font = [UIFont systemFontOfSize:12 weight:UIFontWeightSemibold];
+    developer.textColor = [UIColor.whiteColor colorWithAlphaComponent:0.72];
+    developer.textAlignment = NSTextAlignmentCenter;
+    [self.view addSubview:developer];
+    [NSLayoutConstraint activateConstraints:@[
+        [developer.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [developer.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-14],
+    ]];
     dispatch_async(wq_io(), ^{
         NSString *recovery = wq_recover_interrupted_restore();
         if (recovery) {
@@ -1693,10 +1710,14 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
         ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"r"];
     UIListContentConfiguration *c = cell.defaultContentConfiguration;
     c.text = @"Patches";
-    c.image = [UIImage systemImageNamed:@"switch.2"];
+    c.image = [UIImage systemImageNamed:@"wrench.and.screwdriver"];
+    c.textProperties.color = [UIColor.whiteColor colorWithAlphaComponent:0.92];
+    c.textProperties.font = [UIFont systemFontOfSize:17 weight:UIFontWeightMedium];
+    c.imageProperties.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.78];
     cell.backgroundColor = UIColor.clearColor;
     cell.contentView.backgroundColor = UIColor.clearColor;
     cell.backgroundConfiguration = [UIBackgroundConfiguration clearConfiguration];
+    cell.tintColor = [UIColor.whiteColor colorWithAlphaComponent:0.72];
     cell.contentConfiguration = c;
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
