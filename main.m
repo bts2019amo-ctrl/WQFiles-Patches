@@ -1548,6 +1548,8 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 {
     [super viewDidLoad];
     self.view.backgroundColor = UIColor.clearColor;
+    self.navigationBar.translucent = YES;
+    self.navigationBar.backgroundColor = UIColor.clearColor;
     UIView *particles = [[NSClassFromString(@"WQParticleBackgroundView") alloc] initWithFrame:CGRectZero];
     if (particles) {
         particles.translatesAutoresizingMaskIntoConstraints = NO;
@@ -1633,12 +1635,15 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     UINavigationBarAppearance *barAppearance = [UINavigationBarAppearance new];
     [barAppearance configureWithTransparentBackground];
     barAppearance.backgroundColor = UIColor.clearColor;
-    barAppearance.backgroundEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemChromeMaterialDark];
+    barAppearance.backgroundEffect = nil;
+    barAppearance.shadowColor = UIColor.clearColor;
     barAppearance.titleTextAttributes = @{NSForegroundColorAttributeName: UIColor.whiteColor};
     barAppearance.largeTitleTextAttributes = @{NSForegroundColorAttributeName: UIColor.whiteColor};
     self.navigationController.navigationBar.standardAppearance = barAppearance;
     self.navigationController.navigationBar.scrollEdgeAppearance = barAppearance;
     self.navigationController.navigationBar.tintColor = UIColor.whiteColor;
+    self.navigationController.navigationBar.translucent = YES;
+    self.navigationController.navigationBar.backgroundColor = UIColor.clearColor;
     self.view.backgroundColor = UIColor.clearColor;
     self.tableView.backgroundColor = UIColor.clearColor;
     self.tableView.separatorColor = [UIColor.whiteColor colorWithAlphaComponent:0.12];
