@@ -4,33 +4,36 @@ import UIKit
 private struct WQOriginalEntryView: View {
     let onAuthenticated: () -> Void
     @State private var hasEnteredApp = false
-    @State private var keySession: IOSKeySession?
 
     var body: some View {
         Group {
             if hasEnteredApp {
-                if let keySession {
-                    if keySession.isAuthenticated {
-                        Color.black
-                            .onAppear { onAuthenticated() }
-                    } else {
-                        IOSKeyLoginView(session: keySession)
-                    }
-                } else {
-                    ProgressView()
-                }
+                WQDeferredLoginView(onAuthenticated: onAuthenticated)
             } else {
                 CalculadoraIPhoneView {
                     withAnimation(.easeInOut(duration: 0.22)) {
                         hasEnteredApp = true
-                        let session = IOSKeySession()
-                        session.passCalculatorGate()
-                        keySession = session
                     }
                 }
             }
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+private struct WQDeferredLoginView: View {
+    let onAuthenticated: () -> Void
+    @StateObject private var session = IOSKeySession()
+
+    var body: some View {
+        IOSKeyLoginView(session: session)
+            .onAppear {
+                // This view is instantiated only after the calculator callback.
+                session.passCalculatorGate()
+            }
+            .onChange(of: session.isAuthenticated) { authenticated in
+                if authenticated { onAuthenticated() }
+            }
     }
 }
 
