@@ -47,23 +47,24 @@
     [self.tableView reloadData];
 }
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 3; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView { return 4; }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
-    return section == 0 ? 1 : (section == 1 ? 4 : 3);
+    return section == 0 ? 3 : (section == 1 ? 4 : 3);
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
 {
     if (section == 0) return @"Compatibilidade";
     if (section == 1) return @"Informações do dispositivo";
-    return @"Sobre o WQ Files";
+    if (section == 2) return @"Sobre o WQ Files";
+    return @"Categorias de patches";
 }
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section
 {
-    if (section == 0) return @"O WQ Files foi preparado para iOS 26.0 ou posterior. Recursos de acesso a dados podem variar conforme o sistema e o dispositivo.";
+    if (section == 0) return @"Compatibilidade validada para iOS 26.0 até iOS 27.2 estável. Recursos de acesso a dados podem variar conforme o sistema e o dispositivo.";
     if (section == 2) return @"Interface redesenhada no estilo iOS 26, mantendo o aplicativo focado em patches locais.";
     return nil;
 }
@@ -82,8 +83,13 @@
     content.secondaryTextProperties.font = [UIFont preferredFontForTextStyle:UIFontTextStyleSubheadline];
     content.imageProperties.tintColor = UIColor.systemBlueColor;
     if (indexPath.section == 0) {
-        content.text = @"iOS 26.0 ou posterior";
-        content.secondaryText = [NSString stringWithFormat:@"Sistema atual: iOS %@", self.systemVersion];
+        NSArray *compatibility = @[
+            @[@"iOS 26.0 – iOS 26.x", @"Compatível · interface e patches locais"],
+            @[@"iOS 27.0 – iOS 27.1", @"Compatível · versão estável"],
+            @[@"iOS 27.2 estável", [NSString stringWithFormat:@"Compatível · sistema atual: iOS %@", self.systemVersion]]
+        ];
+        NSArray *row = compatibility[(NSUInteger)indexPath.row];
+        content.text = row[0]; content.secondaryText = row[1];
         content.image = [UIImage systemImageNamed:@"checkmark.shield.fill"];
         content.imageProperties.tintColor = UIColor.systemGreenColor;
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -97,11 +103,19 @@
         ];
         NSArray *row = rows[(NSUInteger)indexPath.row];
         content.text = row[0]; content.secondaryText = row[1]; content.image = [UIImage systemImageNamed:row[2]];
-    } else {
+    } else if (indexPath.section == 2) {
         NSArray *rows = @[
             @[@"Versão do aplicativo", self.appVersion, @"app.badge"],
             @[@"Patches locais", @"Aplicação e restauração seguras", @"square.stack.3d.up.fill"],
             @[@"Interface", @"Visual nativo inspirado no iOS 26", @"paintbrush.pointed.fill"]
+        ];
+        NSArray *row = rows[(NSUInteger)indexPath.row];
+        content.text = row[0]; content.secondaryText = row[1]; content.image = [UIImage systemImageNamed:row[2]];
+    } else {
+        NSArray *rows = @[
+            @[@"Cache", @"Arquivos temporários e dados armazenados", @"internaldrive.fill"],
+            @[@"Avatar / Skin", @"Personalização visual", @"person.crop.circle.fill"],
+            @[@"Holograma / External", @"Efeitos e arquivos externos", @"sparkles"]
         ];
         NSArray *row = rows[(NSUInteger)indexPath.row];
         content.text = row[0]; content.secondaryText = row[1]; content.image = [UIImage systemImageNamed:row[2]];
@@ -114,7 +128,7 @@
 {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     if (indexPath.section != 0) return;
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Compatibilidade do iOS" message:[NSString stringWithFormat:@"Versão mínima: iOS 26.0\nSeu sistema: iOS %@\n\nO WQ Files está configurado para a interface e os recursos do iOS 26.", self.systemVersion] preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Compatibilidade do iOS" message:[NSString stringWithFormat:@"iOS 26.0 até iOS 27.2 estável\nSeu sistema: iOS %@\n\nO WQ Files usa o sistema de patches locais nessas versões.", self.systemVersion] preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
     [self presentViewController:alert animated:YES completion:nil];
 }

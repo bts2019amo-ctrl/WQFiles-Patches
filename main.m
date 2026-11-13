@@ -1729,7 +1729,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     UIViewController *next = nil;
     [NSFileManager.defaultManager createDirectoryAtPath:wq_patch_root() withIntermediateDirectories:YES attributes:nil error:nil];
-    next = [WQPatchViewController new];
+    next = [WQPatchCategoryViewController new];
     [self.navigationController pushViewController:next animated:YES];
 }
 

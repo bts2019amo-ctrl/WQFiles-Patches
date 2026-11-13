@@ -144,7 +144,7 @@ static NSString *wq_patch_target(NSDictionary *manifest, NSString **errorText)
     return nil;
 }
 
-BOOL wq_patch_create_from_file(NSString *targetPath, NSString *replacementPath, NSString *name, NSString **errorText)
+BOOL wq_patch_create_from_file_in_category(NSString *targetPath, NSString *replacementPath, NSString *name, NSString *category, NSString **errorText)
 {
     targetPath = targetPath.stringByStandardizingPath;
     replacementPath = replacementPath.stringByStandardizingPath;
@@ -177,13 +177,18 @@ BOOL wq_patch_create_from_file(NSString *targetPath, NSString *replacementPath, 
         return NO;
     }
     NSData *data = [NSData dataWithContentsOfFile:payload];
-    NSDictionary *manifest = @{ @"Format": @1, @"Name": safe, @"BundleID": bid,
+    NSDictionary *manifest = @{ @"Format": @1, @"Name": safe, @"Category": category.length ? category : @"External", @"BundleID": bid,
                                 @"ContainerPath": container,
                                 @"RelativePath": relative, @"PayloadHash": wq_patch_hash(data ?: NSData.data),
                                 @"Applied": @NO, @"CreatedAt": @([NSDate date].timeIntervalSince1970) };
     if (!wq_patch_save_manifest(manifest, patch, errorText)) { [[NSFileManager defaultManager] removeItemAtPath:patch error:nil]; return NO; }
     wq_log(@"patch created: %@ (%@/%@) replacement=%@", safe, bid, relative, replacementPath);
     return YES;
+}
+
+BOOL wq_patch_create_from_file(NSString *targetPath, NSString *replacementPath, NSString *name, NSString **errorText)
+{
+    return wq_patch_create_from_file_in_category(targetPath, replacementPath, name, @"External", errorText);
 }
 
 static BOOL wq_patch_set_state(NSString *patchPath, BOOL applied, NSString *originalHash, NSString **errorText)
@@ -241,13 +246,19 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 
 @interface WQPatchViewController ()
 @property (nonatomic, strong) NSArray<NSString *> *patches;
+@property (nonatomic, copy) NSString *category;
 @end
 
 @implementation WQPatchViewController
+- (instancetype)initWithCategory:(NSString *)category
+{
+    if ((self = [super initWithStyle:UITableViewStylePlain])) self.category = category.length ? category : @"External";
+    return self;
+}
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.title = @"Patches";
+    self.title = self.category ?: @"Patches";
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
     self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleNone;
@@ -269,7 +280,12 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     dispatch_async(wq_io(), ^{
         NSArray *names = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:wq_patch_root() error:nil] ?: @[];
         NSMutableArray *paths = [NSMutableArray new];
-        for (NSString *n in names) if ([n.pathExtension isEqualToString:@"wqpatch"]) [paths addObject:[wq_patch_root() stringByAppendingPathComponent:n]];
+        for (NSString *n in names) if ([n.pathExtension isEqualToString:@"wqpatch"]) {
+            NSString *path = [wq_patch_root() stringByAppendingPathComponent:n];
+            NSDictionary *manifest = wq_patch_manifest(path);
+            NSString *category = manifest[@"Category"] ?: @"External";
+            if ([category isEqualToString:self.category]) [paths addObject:path];
+        }
         [paths sortUsingComparator:^NSComparisonResult(NSString *a, NSString *b) { return [a.lastPathComponent localizedCaseInsensitiveCompare:b.lastPathComponent]; }];
         dispatch_async(dispatch_get_main_queue(), ^{ self.patches = paths; [self.tableView reloadData]; });
     });
@@ -309,7 +325,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 }
 - (void)addPatch
 {
-    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Create Patch" message:@"The target is the file that will be replaced. The replacement is the file whose contents will be applied when the toggle is on." preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:[NSString stringWithFormat:@"Novo patch · %@", self.category] message:@"O arquivo-alvo será substituído pelo arquivo escolhido quando o toggle estiver ativado." preferredStyle:UIAlertControllerStyleAlert];
     [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"Target path in App Data"; f.autocorrectionType = UITextAutocorrectionTypeNo; f.autocapitalizationType = UITextAutocapitalizationTypeNone; }];
     [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"Replacement file path"; f.autocorrectionType = UITextAutocorrectionTypeNo; f.autocapitalizationType = UITextAutocapitalizationTypeNone; }];
     [a addTextFieldWithConfigurationHandler:^(UITextField *f) { f.placeholder = @"Patch name"; }];
@@ -318,8 +334,54 @@ BOOL wq_patch_is_applied(NSString *patchPath)
         NSString *target = a.textFields[0].text.stringByStandardizingPath;
         NSString *replacement = a.textFields[1].text.stringByStandardizingPath;
         NSString *name = a.textFields[2].text;
-        dispatch_async(wq_io(), ^{ NSString *error = nil; BOOL ok = wq_patch_create_from_file(target, replacement, name, &error); dispatch_async(dispatch_get_main_queue(), ^{ if (!ok) wq_alert(self, @"Patch not created", error ?: @"Unknown error"); else [self reloadPatches]; }); });
+        dispatch_async(wq_io(), ^{ NSString *error = nil; BOOL ok = wq_patch_create_from_file_in_category(target, replacement, name, self.category, &error); dispatch_async(dispatch_get_main_queue(), ^{ if (!ok) wq_alert(self, @"Patch não criado", error ?: @"Erro desconhecido"); else [self reloadPatches]; }); });
     }]];
     [self presentViewController:a animated:YES completion:nil];
+}
+@end
+
+
+@implementation WQPatchCategoryViewController
+- (instancetype)init
+{
+    if ((self = [super initWithStyle:UITableViewStyleInsetGrouped])) self.title = @"Patches";
+    return self;
+}
+- (void)viewDidLoad
+{
+    [super viewDidLoad];
+    self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
+    self.tableView.rowHeight = UITableViewAutomaticDimension;
+    self.tableView.estimatedRowHeight = 82.0;
+    self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
+}
+- (NSArray *)categories
+{
+    return @[
+        @[@"Cache", @"Arquivos temporários e dados armazenados", @"internaldrive.fill", UIColor.systemOrangeColor],
+        @[@"Avatar", @"Personalização de avatar", @"person.crop.circle.fill", UIColor.systemBlueColor],
+        @[@"Skin", @"Visual e aparência", @"paintpalette.fill", UIColor.systemPurpleColor],
+        @[@"Holograma", @"Efeitos holográficos", @"sparkles", UIColor.systemTealColor],
+        @[@"External", @"Patches externos e outros arquivos", @"externaldrive.fill", UIColor.systemGreenColor]
+    ];
+}
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.categories.count; }
+- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section { return @"Categorias de patches"; }
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section { return @"Entre em uma categoria para adicionar, ativar ou restaurar seus patches."; }
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"category"] ?: [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"category"];
+    NSArray *row = self.categories[(NSUInteger)indexPath.row];
+    cell.textLabel.text = row[0]; cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold]; cell.textLabel.numberOfLines = 0;
+    cell.detailTextLabel.text = row[1]; cell.detailTextLabel.textColor = UIColor.secondaryLabelColor; cell.detailTextLabel.numberOfLines = 0;
+    cell.imageView.image = [UIImage systemImageNamed:row[2]]; cell.imageView.tintColor = row[3];
+    cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    return cell;
+}
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    NSString *category = self.categories[(NSUInteger)indexPath.row][0];
+    [self.navigationController pushViewController:[[WQPatchViewController alloc] initWithCategory:category] animated:YES];
 }
 @end
