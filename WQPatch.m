@@ -365,8 +365,8 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 {
     self.navigationItem.rightBarButtonItem.enabled = NO;
     wq_remote_sync(self, ^(NSString *message) {
+        (void)message;
         self.navigationItem.rightBarButtonItem.enabled = YES;
-        wq_alert(self, @"Sincronização remota", message);
     });
 }
 - (NSArray *)categories
