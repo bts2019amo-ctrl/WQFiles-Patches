@@ -63,11 +63,30 @@ if [[ "${WQ_SKIP_IOS_CHECK:-0}" != 1 ]]; then
         cat "$OUT/ios-syntax.log" >&2
         exit 1
     }
-    xcrun --sdk iphoneos clang "${FLAGS[@]}" -framework UIKit -framework Foundation -framework Security -framework UniformTypeIdentifiers \
-        "${SOURCES[@]}" -o "$OUT/WQFiles-link-check" > "$OUT/ios-link.log" 2>&1 || {
-        cat "$OUT/ios-link.log" >&2
-        exit 1
-    }
+    if [[ -f WQCalculadoraIPhoneView.swift && -f WQGateHostController.swift ]]; then
+        OBJC_OBJECTS=()
+        for source in "${SOURCES[@]}"; do
+            object="$OUT/$(basename "${source%.m}").o"
+            xcrun --sdk iphoneos clang "${FLAGS[@]}" -c "$source" -o "$object" >> "$OUT/ios-link.log" 2>&1
+            OBJC_OBJECTS+=("$object")
+        done
+        cat WQCalculadoraIPhoneView.swift WQGateHostController.swift > "$OUT/WQSwiftSources.swift"
+        xcrun --sdk iphoneos swiftc -target arm64-apple-ios${MIN_OS} -sdk "$IOS_SDK" \
+            -swift-version 5 -parse-as-library -O -whole-module-optimization \
+            "$OUT/WQSwiftSources.swift" "${OBJC_OBJECTS[@]}" \
+            -Xlinker -rpath -Xlinker /usr/lib/swift \
+            -framework UIKit -framework Foundation -framework Security -framework SwiftUI -framework AVFAudio -framework UniformTypeIdentifiers \
+            -o "$OUT/WQFiles-link-check" >> "$OUT/ios-link.log" 2>&1 || {
+                cat "$OUT/ios-link.log" >&2
+                exit 1
+            }
+    else
+        xcrun --sdk iphoneos clang "${FLAGS[@]}" -framework UIKit -framework Foundation -framework Security -framework UniformTypeIdentifiers \
+            "${SOURCES[@]}" -o "$OUT/WQFiles-link-check" > "$OUT/ios-link.log" 2>&1 || {
+            cat "$OUT/ios-link.log" >&2
+            exit 1
+        }
+    fi
     printf 'iOS syntax and link checks: PASS\n'
 else
     printf '\niOS syntax/link checks explicitly skipped (WQ_SKIP_IOS_CHECK=1).\n'
