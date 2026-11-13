@@ -1622,6 +1622,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
     [super viewDidLoad];
     self.navigationController.navigationBar.prefersLargeTitles = YES;
     self.navigationController.navigationBar.tintColor = WQAccentColor();
+    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"gearshape.fill"] style:UIBarButtonItemStylePlain target:self action:@selector(openSettings)];
     self.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableView.estimatedRowHeight = 72.0;
     self.tableView.sectionHeaderHeight = UITableViewAutomaticDimension;
@@ -1643,6 +1644,26 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
             });
         }
     });
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(wq_themeDidChange:) name:WQAccentColorDidChangeNotification object:nil];
+}
+
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+    self.navigationController.navigationBar.tintColor = WQAccentColor();
+    [self.tableView reloadData];
+}
+
+- (void)wq_themeDidChange:(NSNotification *)note
+{
+    (void)note;
+    self.navigationController.navigationBar.tintColor = WQAccentColor();
+    [self.tableView reloadData];
+}
+
+- (void)openSettings
+{
+    [self.navigationController pushViewController:[WQSettingsViewController new] animated:YES];
 }
 
 // "by kolbicz" with GitHub and X links, under the last section.
@@ -1706,7 +1727,7 @@ static NSString *const kSystemGroupRoot = @"/private/var/containers/Shared/Syste
 
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section
 {
-    return @"Aplicação e restauração seguras de arquivos locais. Abra Configurações dentro de Patches para ver a compatibilidade do iOS.";
+    return @"Aplicação e restauração seguras de arquivos locais. Use o botão de configurações no canto superior direito.";
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath

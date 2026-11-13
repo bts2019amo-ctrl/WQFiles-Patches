@@ -268,14 +268,16 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     self.tableView.estimatedRowHeight = 82.0;
     self.tableView.sectionFooterHeight = UITableViewAutomaticDimension;
     self.tableView.estimatedSectionFooterHeight = 60.0;
-    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"gearshape.fill"] style:UIBarButtonItemStylePlain target:self action:@selector(openSettings)];
     UIBarButtonItem *add = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(addPatch)];
     self.navigationItem.rightBarButtonItem = add;
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(wq_themeDidChange:) name:WQAccentColorDidChangeNotification object:nil];
     [self reloadPatches];
 }
-- (void)openSettings
+- (void)wq_themeDidChange:(NSNotification *)note
 {
-    [self.navigationController pushViewController:[WQSettingsViewController new] animated:YES];
+    (void)note;
+    self.navigationController.navigationBar.tintColor = WQAccentColor();
+    [self.tableView reloadData];
 }
 - (void)reloadPatches
 {
@@ -355,6 +357,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     self.navigationItem.largeTitleDisplayMode = UINavigationItemLargeTitleDisplayModeAlways;
     self.navigationController.navigationBar.tintColor = WQAccentColor();
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithImage:[UIImage systemImageNamed:@"arrow.clockwise"] style:UIBarButtonItemStylePlain target:self action:@selector(syncRemote)];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(wq_themeDidChange:) name:WQAccentColorDidChangeNotification object:nil];
     self.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableView.estimatedRowHeight = 82.0;
     self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
@@ -371,6 +374,12 @@ BOOL wq_patch_is_applied(NSString *patchPath)
         (void)message;
         self.navigationItem.rightBarButtonItem.enabled = YES;
     });
+}
+- (void)wq_themeDidChange:(NSNotification *)note
+{
+    (void)note;
+    self.navigationController.navigationBar.tintColor = WQAccentColor();
+    [self.tableView reloadData];
 }
 - (NSArray *)categories
 {
@@ -391,7 +400,7 @@ BOOL wq_patch_is_applied(NSString *patchPath)
     NSArray *row = self.categories[(NSUInteger)indexPath.row];
     cell.textLabel.text = row[0]; cell.textLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold]; cell.textLabel.numberOfLines = 0;
     cell.detailTextLabel.text = row[1]; cell.detailTextLabel.textColor = UIColor.secondaryLabelColor; cell.detailTextLabel.numberOfLines = 0;
-    cell.imageView.image = [UIImage systemImageNamed:row[2]]; cell.imageView.tintColor = row[3];
+    cell.imageView.image = [UIImage systemImageNamed:row[2]]; cell.imageView.tintColor = WQAccentColor();
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
     return cell;
 }

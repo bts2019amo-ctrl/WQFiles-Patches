@@ -28,6 +28,7 @@
     self.tableView.backgroundColor = UIColor.systemGroupedBackgroundColor;
     self.navigationController.navigationBar.tintColor = WQAccentColor();
     self.tableView.separatorStyle = UITableViewCellSeparatorStyleSingleLine;
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(wq_themeDidChange:) name:WQAccentColorDidChangeNotification object:nil];
     self.tableView.rowHeight = UITableViewAutomaticDimension;
     self.tableView.estimatedRowHeight = 64.0;
     self.tableView.sectionHeaderHeight = UITableViewAutomaticDimension;
@@ -42,10 +43,18 @@
     [self.tableView registerClass:UITableViewCell.class forCellReuseIdentifier:@"settings"];
 }
 
+- (void)wq_themeDidChange:(NSNotification *)note
+{
+    (void)note;
+    self.navigationController.navigationBar.tintColor = WQAccentColor();
+    [self.tableView reloadData];
+}
+
 - (void)viewWillAppear:(BOOL)animated
 {
     [super viewWillAppear:animated];
     self.systemVersion = UIDevice.currentDevice.systemVersion ?: @"Desconhecido";
+    self.navigationController.navigationBar.tintColor = WQAccentColor();
     [self.tableView reloadData];
 }
 
