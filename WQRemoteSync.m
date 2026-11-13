@@ -41,7 +41,9 @@ static NSString * const WQRemoteThemePrefix = @"WQRemoteTheme.";
     unsigned int rgb = 0;
     NSScanner *scanner = [NSScanner scannerWithString:normalized];
     if (![scanner scanHexInt:&rgb]) return fallback;
-    return [UIColor colorWithRed:((rgb >> 16) & 0xff) / 255.0 green:((rgb >> 8) & 0xff) / 255.0 blue:(rgb & 0xff) / 255.0 alpha:1.0];
+    NSString *opacityKey = [WQRemoteThemePrefix stringByAppendingString:@"opacityPercent"];
+    CGFloat opacity = [NSUserDefaults.standardUserDefaults objectForKey:opacityKey] ? [NSUserDefaults.standardUserDefaults integerForKey:opacityKey] / 100.0 : 1.0;
+    return [UIColor colorWithRed:((rgb >> 16) & 0xff) / 255.0 green:((rgb >> 8) & 0xff) / 255.0 blue:(rgb & 0xff) / 255.0 alpha:MAX(0.10, MIN(1.0, opacity))];
 }
 
 + (CGFloat)themeCornerRadius
@@ -256,7 +258,7 @@ static NSString * const WQRemoteThemePrefix = @"WQRemoteTheme.";
 - (void)applyTheme:(NSDictionary *)theme
 {
     if (!theme.count) return;
-    NSDictionary<NSString *, NSString *> *defaults = @{
+    NSDictionary<NSString *, id> *defaults = @{
         @"accentColor": @"#a3ff12",
         @"backgroundColor": @"#07100d",
         @"surfaceColor": @"#0d1b16",
@@ -264,10 +266,16 @@ static NSString * const WQRemoteThemePrefix = @"WQRemoteTheme.";
         @"mutedColor": @"#8da69a",
         @"borderColor": @"#234238",
         @"radius": @"18px",
+        @"opacityPercent": @100,
     };
     NSMutableDictionary *resolved = [NSMutableDictionary new];
     for (NSString *key in defaults) {
-        NSString *value = [theme[key] isKindOfClass:NSString.class] ? theme[key] : defaults[key];
+        id rawValue = theme[key];
+        id value = [rawValue isKindOfClass:NSString.class] ? rawValue : defaults[key];
+        if ([key isEqualToString:@"opacityPercent"]) {
+            NSInteger percent = [rawValue respondsToSelector:@selector(integerValue)] ? [rawValue integerValue] : 100;
+            value = @(MAX(10, MIN(100, percent)));
+        }
         if ([key hasSuffix:@"Color"] && ![self colorFromHex:value fallback:nil]) value = defaults[key];
         if ([key isEqualToString:@"radius"] && ![@[@"12px", @"18px", @"24px"] containsObject:value]) value = defaults[key];
         resolved[key] = value;
@@ -307,7 +315,9 @@ static NSString * const WQRemoteThemePrefix = @"WQRemoteTheme.";
     unsigned int rgb = 0;
     NSScanner *scanner = [NSScanner scannerWithString:hex];
     if (![scanner scanHexInt:&rgb]) return fallback;
-    return [UIColor colorWithRed:((rgb >> 16) & 0xff) / 255.0 green:((rgb >> 8) & 0xff) / 255.0 blue:(rgb & 0xff) / 255.0 alpha:1.0];
+    NSString *opacityKey = [WQRemoteThemePrefix stringByAppendingString:@"opacityPercent"];
+    CGFloat opacity = [NSUserDefaults.standardUserDefaults objectForKey:opacityKey] ? [NSUserDefaults.standardUserDefaults integerForKey:opacityKey] / 100.0 : 1.0;
+    return [UIColor colorWithRed:((rgb >> 16) & 0xff) / 255.0 green:((rgb >> 8) & 0xff) / 255.0 blue:(rgb & 0xff) / 255.0 alpha:MAX(0.10, MIN(1.0, opacity))];
 }
 
 - (UIViewController *)topViewController:(UIViewController *)controller

@@ -64,6 +64,7 @@ enum AppTheme {
     static var saturation: Double { UserDefaults.standard.object(forKey: saturationStorageKey) as? Double ?? defaultSaturation }
     static var pageBackground: Color { Color(remoteHex: UserDefaults.standard.string(forKey: "WQRemoteTheme.backgroundColor") ?? "#000000") }
     static var consoleBackground: Color { Color(remoteHex: UserDefaults.standard.string(forKey: "WQRemoteTheme.surfaceColor") ?? "#0d1b16") }
+    static var remoteOpacity: Double { max(0.10, min(1.0, Double(UserDefaults.standard.integer(forKey: "WQRemoteTheme.opacityPercent")) / 100.0)) }
     static let pageInset: CGFloat = 16
     static let rowIconSize: CGFloat = 17
     static let rowIconFrame: CGFloat = 28
@@ -81,12 +82,13 @@ struct ParticleFieldBackground: View {
     @AppStorage("WQRemoteTheme.backgroundColor") private var remoteBackground = "#000000"
     @AppStorage("WQRemoteTheme.accentColor") private var remoteAccent = "#a3ff12"
     @AppStorage("WQRemoteTheme.mutedColor") private var remoteMuted = "#8da69a"
+    @AppStorage("WQRemoteTheme.opacityPercent") private var remoteOpacityPercent = 100
 
     var body: some View {
         GeometryReader { _ in
             ZStack {
                 LinearGradient(
-                    colors: [Color(remoteHex: remoteBackground).opacity(0.72), Color(remoteHex: remoteMuted).opacity(0.18), Color(remoteHex: remoteBackground)],
+                    colors: [Color(remoteHex: remoteBackground).opacity(0.72 * Self.opacityValue(remoteOpacityPercent)), Color(remoteHex: remoteMuted).opacity(0.18 * Self.opacityValue(remoteOpacityPercent)), Color(remoteHex: remoteBackground).opacity(Self.opacityValue(remoteOpacityPercent))],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
@@ -94,7 +96,7 @@ struct ParticleFieldBackground: View {
                 TimelineView(.periodic(from: .now, by: 1.0 / 30.0)) { timeline in
                     Canvas { context, size in
                         let phase = timeline.date.timeIntervalSinceReferenceDate * 1.35
-                        Self.drawConstellation(in: &context, size: size, phase: phase, accent: Color(remoteHex: remoteAccent), muted: Color(remoteHex: remoteMuted))
+                        Self.drawConstellation(in: &context, size: size, phase: phase, accent: Color(remoteHex: remoteAccent), muted: Color(remoteHex: remoteMuted), opacity: Self.opacityValue(remoteOpacityPercent))
                     }
                 }
             }
@@ -104,7 +106,8 @@ struct ParticleFieldBackground: View {
         .accessibilityHidden(true)
     }
 
-    private static func drawConstellation(in context: inout GraphicsContext, size: CGSize, phase: Double, accent: Color, muted: Color) {
+    private static func opacityValue(_ percent: Int) -> Double { max(0.10, min(1.0, Double(percent) / 100.0)) }
+    private static func drawConstellation(in context: inout GraphicsContext, size: CGSize, phase: Double, accent: Color, muted: Color, opacity: Double) {
         guard size.width > 0, size.height > 0 else { return }
         let count = 25
         let points: [CGPoint] = (0..<count).map { index in
@@ -131,15 +134,15 @@ struct ParticleFieldBackground: View {
                 var path = Path()
                 path.move(to: a)
                 path.addLine(to: b)
-                let opacity = Double(0.11 * (1 - distance / maxDistance))
-                context.stroke(path, with: .color(muted.opacity(opacity)), lineWidth: 0.55)
+                let lineOpacity = Double(0.11 * (1 - distance / maxDistance)) * opacity
+                context.stroke(path, with: .color(muted.opacity(lineOpacity)), lineWidth: 0.55)
             }
         }
 
         for (index, point) in points.enumerated() {
             let radius: CGFloat = index.isMultiple(of: 5) ? 2.1 : 1.25
             let dot = Path(ellipseIn: CGRect(x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2))
-            context.fill(dot, with: .color(accent.opacity(index.isMultiple(of: 4) ? 0.42 : 0.20)))
+            context.fill(dot, with: .color(accent.opacity((index.isMultiple(of: 4) ? 0.42 : 0.20) * opacity)))
         }
     }
 }
@@ -158,9 +161,15 @@ struct AppLogo: View {
 
 extension Color {
     init(remoteHex: String) {
+        let key = "WQRemoteTheme.opacityPercent"
+        let percent = UserDefaults.standard.object(forKey: key) == nil ? 100 : UserDefaults.standard.integer(forKey: key)
+        self.init(remoteHex: remoteHex, opacity: max(0.10, min(1.0, Double(percent) / 100.0)))
+    }
+
+    init(remoteHex: String, opacity: Double) {
         let value = remoteHex.hasPrefix("#") ? String(remoteHex.dropFirst()) : remoteHex
         var rgb: UInt64 = 0
         Scanner(string: value).scanHexInt64(&rgb)
-        self.init(.sRGB, red: Double((rgb >> 16) & 0xff) / 255.0, green: Double((rgb >> 8) & 0xff) / 255.0, blue: Double(rgb & 0xff) / 255.0, opacity: 1.0)
+        self.init(.sRGB, red: Double((rgb >> 16) & 0xff) / 255.0, green: Double((rgb >> 8) & 0xff) / 255.0, blue: Double(rgb & 0xff) / 255.0, opacity: opacity)
     }
 }

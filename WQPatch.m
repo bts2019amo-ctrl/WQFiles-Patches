@@ -420,8 +420,17 @@ BOOL wq_patch_prune_remote_not_in(NSArray<NSNumber *> *activeRemoteIDs, NSString
 {
     [super viewDidLoad];
     self.title = @"Patches";
-    self.view.backgroundColor = [WQRemoteSync themeColorForKey:@"backgroundColor" fallback:UIColor.clearColor];
-    self.tableView.backgroundColor = [WQRemoteSync themeColorForKey:@"backgroundColor" fallback:UIColor.clearColor];
+    self.view.backgroundColor = UIColor.clearColor;
+    WQParticleBackgroundView *particles = [WQParticleBackgroundView new];
+    particles.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view insertSubview:particles atIndex:0];
+    [NSLayoutConstraint activateConstraints:@[
+        [particles.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [particles.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
+        [particles.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
+        [particles.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+    ]];
+    self.tableView.backgroundColor = UIColor.clearColor;
     self.tableView.backgroundView = nil;
     self.tableView.separatorColor = [[WQRemoteSync themeColorForKey:@"borderColor" fallback:UIColor.whiteColor] colorWithAlphaComponent:0.55];
     self.menuItems = @[
@@ -499,7 +508,7 @@ BOOL wq_patch_prune_remote_not_in(NSArray<NSNumber *> *activeRemoteIDs, NSString
     cell.textLabel.text = m[@"Name"] ?: path.lastPathComponent.stringByDeletingPathExtension;
     cell.detailTextLabel.text = [NSString stringWithFormat:@"%@ · %@", m[@"BundleID"] ?: @"?", m[@"TargetFileName"] ?: m[@"RelativePath"] ?: @"?"];
     cell.detailTextLabel.textColor = [WQRemoteSync themeColorForKey:@"mutedColor" fallback:[UIColor.whiteColor colorWithAlphaComponent:0.56]];
-    UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.tag = indexPath.row; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
+    UISwitch *toggle = [UISwitch new]; toggle.on = wq_patch_is_applied(path); toggle.enabled = ![WQRemoteSync shared].isBlocked; toggle.tag = indexPath.row; [toggle addTarget:self action:@selector(togglePatch:) forControlEvents:UIControlEventValueChanged]; cell.accessoryView = toggle;
     cell.imageView.image = [UIImage systemImageNamed:toggle.on ? @"checkmark.circle.fill" : @"circle"];
     return cell;
 }
