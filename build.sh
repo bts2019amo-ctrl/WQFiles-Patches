@@ -73,7 +73,9 @@ xcrun --sdk iphoneos swiftc -target arm64-apple-ios"$MINIMUM_IOS_VERSION" -sdk "
     -framework UIKit -framework SwiftUI -framework Foundation -framework Security -framework CryptoKit -framework UniformTypeIdentifiers -framework AVFAudio
 cp Info.plist "$APP/Info.plist"
 cp icons/AppIcon*@*.png "$APP/"
-cp resources/FreeFireMax.jpg resources/FreeFireNormal.jpg "$APP/"
+if [[ -f resources/FreeFireMax.jpg && -f resources/FreeFireNormal.jpg ]]; then
+    cp resources/FreeFireMax.jpg resources/FreeFireNormal.jpg "$APP/"
+fi
 plutil -convert binary1 "$APP/Info.plist"
 codesign -f -s - --entitlements entitlements.plist "$APP"
 
