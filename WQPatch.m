@@ -68,7 +68,7 @@ static NSArray<NSString *> *wq_patch_containers_for_bundle(NSString *bundleID)
     for (NSString *root in wq_ls_container_paths(nil) ?: @[]) {
         NSString *normalizedRoot = root.stringByStandardizingPath;
         NSString *found = wq_bundle_id_for_container(normalizedRoot) ?: wq_container_label(normalizedRoot);
-        if ([found isEqualToString:bundleID] && ![matches containsObject:normalizedRoot]) [matches addObject:normalizedRoot];
+        if ([found caseInsensitiveCompare:bundleID] == NSOrderedSame && ![matches containsObject:normalizedRoot]) [matches addObject:normalizedRoot];
     }
     return matches;
 }
@@ -78,14 +78,19 @@ static NSArray<NSString *> *wq_patch_find_files_named(NSString *root, NSString *
     if (!root.length || !fileName.length) return @[];
     NSMutableArray<NSString *> *matches = [NSMutableArray new];
     NSMutableArray<NSString *> *pending = [NSMutableArray arrayWithObject:root.stringByStandardizingPath];
-    NSUInteger visited = 0;
-    while (pending.count && visited++ < 10000 && matches.count < 2) {
+    NSMutableSet<NSString *> *visitedPaths = [NSMutableSet set];
+    while (pending.count && matches.count < 2) {
         NSString *directory = pending.firstObject;
         [pending removeObjectAtIndex:0];
-        for (NSString *child in wq_list(directory, nil) ?: @[]) {
+        NSString *normalized = directory.stringByStandardizingPath;
+        if ([visitedPaths containsObject:normalized]) continue;
+        [visitedPaths addObject:normalized];
+        NSArray<NSString *> *children = wq_list(normalized, nil);
+        if (!children) children = wq_enumerate(normalized, 0, nil, nil);
+        for (NSString *child in children ?: @[]) {
             struct stat st;
             if (!wq_stat(child, &st)) continue;
-            if (S_ISREG(st.st_mode) && [child.lastPathComponent isEqualToString:fileName]) [matches addObject:child];
+            if (S_ISREG(st.st_mode) && [child.lastPathComponent caseInsensitiveCompare:fileName] == NSOrderedSame) [matches addObject:child];
             else if (S_ISDIR(st.st_mode)) [pending addObject:child];
             if (matches.count >= 2) break;
         }
@@ -167,7 +172,7 @@ static NSString *wq_patch_target(NSDictionary *manifest, NSString **errorText)
         return nil;
     }
     if ([targetFileName isKindOfClass:NSString.class] && targetFileName.length) {
-        NSArray<NSString *> *roots = wq_ls_container_paths(nil) ?: @[];
+        NSArray<NSString *> *roots = wq_patch_containers_for_bundle(bid);
         NSMutableArray<NSString *> *preferred = [NSMutableArray array];
         NSMutableArray<NSString *> *fallback = [NSMutableArray array];
         NSMutableSet<NSString *> *preferredVisited = [NSMutableSet set];
