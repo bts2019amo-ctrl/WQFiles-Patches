@@ -102,6 +102,28 @@ static BOOL wq_patch_save_manifest(NSDictionary *manifest, NSString *patchPath, 
     return YES;
 }
 
+static BOOL wq_patch_bundle_matches(NSString *root, NSString *bundleID)
+{
+    NSString *found = wq_bundle_id_for_container(root) ?: wq_container_label(root);
+    return found.length && bundleID.length && [found caseInsensitiveCompare:bundleID] == NSOrderedSame;
+}
+
+static void wq_patch_collect_recursive(NSString *directory, NSString *targetFileName, NSMutableArray<NSString *> *matches, NSMutableSet<NSString *> *visited)
+{
+    NSString *normalized = directory.stringByStandardizingPath;
+    if (!normalized.length || [visited containsObject:normalized]) return;
+    [visited addObject:normalized];
+    for (NSString *child in wq_list(normalized, nil) ?: @[]) {
+        struct stat st;
+        if (!wq_stat(child, &st)) continue;
+        if (S_ISREG(st.st_mode) && [child.lastPathComponent caseInsensitiveCompare:targetFileName] == NSOrderedSame) {
+            [matches addObject:child];
+        } else if (S_ISDIR(st.st_mode)) {
+            wq_patch_collect_recursive(child, targetFileName, matches, visited);
+        }
+    }
+}
+
 static NSString *wq_patch_target(NSDictionary *manifest, NSString **errorText)
 {
     NSString *bid = manifest[@"BundleID"];
@@ -112,27 +134,29 @@ static NSString *wq_patch_target(NSDictionary *manifest, NSString **errorText)
         return nil;
     }
     if ([targetFileName isKindOfClass:NSString.class] && targetFileName.length) {
-        NSMutableArray<NSString *> *matches = [NSMutableArray array];
-        for (NSString *root in wq_ls_container_paths(nil)) {
+        NSArray<NSString *> *roots = wq_ls_container_paths(nil) ?: @[];
+        NSMutableArray<NSString *> *preferred = [NSMutableArray array];
+        NSMutableArray<NSString *> *fallback = [NSMutableArray array];
+        NSMutableSet<NSString *> *preferredVisited = [NSMutableSet set];
+        NSMutableSet<NSString *> *fallbackVisited = [NSMutableSet set];
+        NSString *relativeCandidate = [relative isKindOfClass:NSString.class] && wq_patch_relative_valid(relative) ? relative : nil;
+        for (NSString *root in roots) {
             NSString *normalizedRoot = root.stringByStandardizingPath;
-            NSString *found = wq_bundle_id_for_container(normalizedRoot) ?: wq_container_label(normalizedRoot);
-            if (![found isEqualToString:bid]) continue;
-            NSMutableArray<NSString *> *pending = [NSMutableArray arrayWithObject:normalizedRoot];
-            NSUInteger visited = 0;
-            while (pending.count && visited++ < 10000) {
-                NSString *directory = pending.firstObject;
-                [pending removeObjectAtIndex:0];
-                for (NSString *child in wq_list(directory, nil) ?: @[]) {
-                    struct stat st;
-                    if (!wq_stat(child, &st)) continue;
-                    if (S_ISREG(st.st_mode) && [child.lastPathComponent isEqualToString:targetFileName]) [matches addObject:child];
-                    else if (S_ISDIR(st.st_mode)) [pending addObject:child];
+            BOOL preferredRoot = wq_patch_bundle_matches(normalizedRoot, bid);
+            if (relativeCandidate.length) {
+                NSString *candidate = [normalizedRoot stringByAppendingPathComponent:relativeCandidate];
+                struct stat st;
+                if (wq_stat(candidate, &st) && S_ISREG(st.st_mode)) {
+                    [(preferredRoot ? preferred : fallback) addObject:candidate];
+                    continue;
                 }
             }
+            wq_patch_collect_recursive(normalizedRoot, targetFileName, preferredRoot ? preferred : fallback, preferredRoot ? preferredVisited : fallbackVisited);
         }
+        NSArray<NSString *> *matches = preferred.count ? preferred : fallback;
         if (matches.count == 1) return matches.firstObject;
-        if (matches.count > 1) { if (errorText) *errorText = [NSString stringWithFormat:@"Mais de um arquivo %@ foi encontrado no app; o patch foi recusado por segurança.", targetFileName]; return nil; }
-        if (errorText) *errorText = [NSString stringWithFormat:@"Não foi encontrado nenhum arquivo %@ no Bundle ID %@.", targetFileName, bid];
+        if (matches.count > 1) { if (errorText) *errorText = [NSString stringWithFormat:@"Mais de um arquivo %@ foi encontrado nas pastas do app; o patch foi recusado por segurança.", targetFileName]; return nil; }
+        if (errorText) *errorText = [NSString stringWithFormat:@"Não foi encontrado nenhum arquivo %@ em nenhuma pasta do Bundle ID %@.", targetFileName, bid];
         return nil;
     }
     if (!wq_patch_relative_valid(relative)) {
