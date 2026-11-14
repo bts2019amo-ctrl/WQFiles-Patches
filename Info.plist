@@ -52,8 +52,6 @@
 	<string>https://proxyremote-bttmjbbo.manus.space/api/v1/manifest</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
 	<key>MinimumOSVersion</key>
 	<string>26.0</string>
 	<key>UIApplicationSceneManifest</key>
@@ -66,8 +64,6 @@
 		<integer>1</integer>
 		<integer>2</integer>
 	</array>
-	<key>UIFileSharingEnabled</key>
-	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

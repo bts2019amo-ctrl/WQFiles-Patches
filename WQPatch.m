@@ -47,8 +47,8 @@ static NSString *wq_patch_hash(NSData *data)
 
 NSString *wq_patch_root(void)
 {
-    NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-    return [docs stringByAppendingPathComponent:@"Patches"];
+    NSString *support = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
+    return [[support stringByAppendingPathComponent:@"EXTERNAL SYSTEM"] stringByAppendingPathComponent:@"Patches"];
 }
 
 static BOOL wq_patch_relative_valid(NSString *relative)
@@ -576,6 +576,12 @@ BOOL wq_patch_is_applied(NSString *patchPath)
 void wq_remote_sync(UIViewController *host, void (^completion)(NSString *message))
 {
     (void)host;
+    if (![[NSUserDefaults standardUserDefaults] boolForKey:@"WQLicenseSessionActive"]) {
+        if (completion) dispatch_async(dispatch_get_main_queue(), ^{
+            completion(@"Valide a key antes de baixar patches remotos.");
+        });
+        return;
+    }
     NSURL *catalogURL = [NSURL URLWithString:@"https://patchhub-58az32uq.manus.space/api/patches/public-sync"];
     if (!catalogURL) { if (completion) dispatch_async(dispatch_get_main_queue(), ^{ completion(@"URL do catálogo inválida."); }); return; }
     NSURLSessionDataTask *task = [NSURLSession.sharedSession dataTaskWithURL:catalogURL completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {

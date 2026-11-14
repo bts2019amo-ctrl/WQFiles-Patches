@@ -343,8 +343,8 @@ NSString *wq_backup_root(void)
 #ifdef WQ_ACCESS_TESTING
     if (wq_test_backup_root) return wq_test_backup_root;
 #endif
-    NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-    return [docs stringByAppendingPathComponent:@"Backups"];
+    NSString *support = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
+    return [[support stringByAppendingPathComponent:@"EXTERNAL SYSTEM"] stringByAppendingPathComponent:@"Backups"];
 }
 
 NSString *wq_app_backup_root(void)
@@ -352,8 +352,8 @@ NSString *wq_app_backup_root(void)
 #ifdef WQ_ACCESS_TESTING
     if (wq_test_app_backup_root) return wq_test_app_backup_root;
 #endif
-    NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-    return [docs stringByAppendingPathComponent:@"AppBackups"];
+    NSString *support = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
+    return [[support stringByAppendingPathComponent:@"EXTERNAL SYSTEM"] stringByAppendingPathComponent:@"AppBackups"];
 }
 
 BOOL wq_is_backup_storage_path(NSString *path)

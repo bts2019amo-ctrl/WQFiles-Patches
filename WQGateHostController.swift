@@ -34,6 +34,7 @@ private final class WQKeySession: ObservableObject {
     private let account = "license-key"
 
     init() {
+        UserDefaults.standard.set(false, forKey: "WQLicenseSessionActive")
         storedKey = readKey()
     }
 
@@ -65,14 +66,17 @@ private final class WQKeySession: ObservableObject {
             let accepted = payload.success == true && isActive && payload.status?.lowercased() == "active"
             guard accepted else {
                 authenticated = false
+                UserDefaults.standard.set(false, forKey: "WQLicenseSessionActive")
                 error = payload.message ?? payload.reason ?? "Chave inválida ou expirada."
                 return
             }
             authenticated = true
+            UserDefaults.standard.set(true, forKey: "WQLicenseSessionActive")
             error = nil
             storedKey = key
             if save { writeKey(key) }
         } catch {
+            UserDefaults.standard.set(false, forKey: "WQLicenseSessionActive")
             if !authenticated { self.error = "Não foi possível verificar a chave. Verifique sua conexão." }
         }
     }
