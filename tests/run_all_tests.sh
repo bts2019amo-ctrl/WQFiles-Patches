@@ -34,10 +34,10 @@ compile_run() {
 
 compile_run WQCoreTests WQCore.m tests/WQCoreTests.m
 compile_run WQAccessSafetyTests tests/WQAccessSafetyTests.m
-compile_run WQAccessMutationTests tests/WQAccessMutationTests.m WQCore.m
-compile_run WQAccessTreeTests tests/WQAccessTreeTests.m WQCore.m
-compile_run WQAccessMeasureTests tests/WQAccessMeasureTests.m WQCore.m
-compile_run WQAccessCopyTests tests/WQAccessCopyTests.m WQCore.m
+compile_run WQAccessMutationTests tests/WQAccessMutationTests.m WQCore.m compat3106/bad_query.m
+compile_run WQAccessTreeTests tests/WQAccessTreeTests.m WQCore.m compat3106/bad_query.m
+compile_run WQAccessMeasureTests tests/WQAccessMeasureTests.m WQCore.m compat3106/bad_query.m
+compile_run WQAccessCopyTests tests/WQAccessCopyTests.m WQCore.m compat3106/bad_query.m
 compile_run WQAppsCopyTests tests/WQAppsCopyTests.m WQCore.m
 compile_run WQAppsSupportTests tests/WQAppsSupportTests.m
 compile_run WQCacheSafetyTests tests/WQCacheSafetyTests.m
