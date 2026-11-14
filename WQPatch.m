@@ -60,6 +60,18 @@ static BOOL wq_patch_relative_valid(NSString *relative)
     return YES;
 }
 
+static NSString *wq_patch_complete_relative_path(NSString *relative, NSString *fileName)
+{
+    if (![relative isKindOfClass:NSString.class] || !relative.length ||
+        ![fileName isKindOfClass:NSString.class] || !fileName.length) return nil;
+    NSString *cleanRelative = [relative stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    NSString *cleanName = [fileName stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (!wq_patch_relative_valid(cleanRelative) || [cleanName containsString:@"/"] ||
+        [cleanName isEqualToString:@"."] || [cleanName isEqualToString:@".."]) return nil;
+    if ([cleanRelative.lastPathComponent caseInsensitiveCompare:cleanName] == NSOrderedSame) return cleanRelative;
+    return [cleanRelative stringByAppendingPathComponent:cleanName];
+}
+
 static NSArray<NSString *> *wq_patch_containers_for_bundle(NSString *bundleID)
 {
     NSMutableArray<NSString *> *matches = [NSMutableArray new];
@@ -200,7 +212,7 @@ static NSString *wq_patch_target(NSDictionary *manifest, NSString **errorText)
         NSMutableArray<NSString *> *fallback = [NSMutableArray array];
         NSMutableSet<NSString *> *preferredVisited = [NSMutableSet set];
         NSMutableSet<NSString *> *fallbackVisited = [NSMutableSet set];
-        NSString *relativeCandidate = [relative isKindOfClass:NSString.class] && wq_patch_relative_valid(relative) ? relative : nil;
+        NSString *relativeCandidate = wq_patch_complete_relative_path(relative, targetFileName);
         for (NSString *root in roots) {
             NSString *normalizedRoot = root.stringByStandardizingPath;
             BOOL preferredRoot = wq_patch_bundle_matches(normalizedRoot, bid);
@@ -608,7 +620,9 @@ void wq_remote_sync(UIViewController *host, void (^completion)(NSString *message
                 }
                 [[NSFileManager defaultManager] createDirectoryAtPath:patchPath withIntermediateDirectories:YES attributes:nil error:nil];
                 if (![payload writeToFile:[patchPath stringByAppendingPathComponent:kPayload] options:NSDataWritingAtomic error:nil]) continue;
-                NSDictionary *manifest = @{ @"Format": @1, @"Name": name, @"Category": category.length ? category : @"External", @"BundleID": bundleID, @"RelativePath": relative, @"TargetFileName": fileName, @"PayloadHash": wq_patch_hash(payload), @"Applied": @(wasApplied), @"RemoteID": remoteID, @"RemoteVersion": item[@"version"] ?: @1, @"CreatedAt": @([NSDate date].timeIntervalSince1970) };
+                NSString *completeRelative = wq_patch_complete_relative_path(relative, fileName);
+                if (!completeRelative) continue;
+                NSDictionary *manifest = @{ @"Format": @1, @"Name": name, @"Category": category.length ? category : @"External", @"BundleID": bundleID, @"RelativePath": completeRelative, @"TargetFileName": fileName, @"PayloadHash": wq_patch_hash(payload), @"Applied": @(wasApplied), @"RemoteID": remoteID, @"RemoteVersion": item[@"version"] ?: @1, @"CreatedAt": @([NSDate date].timeIntervalSince1970) };
                 if ([manifest writeToFile:oldManifestPath atomically:YES]) synced++;
             }
             NSArray *localNames = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:rootPath error:nil] ?: @[];
