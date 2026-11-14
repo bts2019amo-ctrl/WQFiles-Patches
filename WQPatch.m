@@ -60,6 +60,39 @@ static BOOL wq_patch_relative_valid(NSString *relative)
     return YES;
 }
 
+static NSArray<NSString *> *wq_patch_containers_for_bundle(NSString *bundleID)
+{
+    NSMutableArray<NSString *> *matches = [NSMutableArray new];
+    NSString *knownPath = wq_bundle_path_for_id(bundleID);
+    if (knownPath.length) [matches addObject:knownPath.stringByStandardizingPath];
+    for (NSString *root in wq_ls_container_paths(nil) ?: @[]) {
+        NSString *normalizedRoot = root.stringByStandardizingPath;
+        NSString *found = wq_bundle_id_for_container(normalizedRoot) ?: wq_container_label(normalizedRoot);
+        if ([found isEqualToString:bundleID] && ![matches containsObject:normalizedRoot]) [matches addObject:normalizedRoot];
+    }
+    return matches;
+}
+
+static NSArray<NSString *> *wq_patch_find_files_named(NSString *root, NSString *fileName)
+{
+    if (!root.length || !fileName.length) return @[];
+    NSMutableArray<NSString *> *matches = [NSMutableArray new];
+    NSMutableArray<NSString *> *pending = [NSMutableArray arrayWithObject:root.stringByStandardizingPath];
+    NSUInteger visited = 0;
+    while (pending.count && visited++ < 10000 && matches.count < 2) {
+        NSString *directory = pending.firstObject;
+        [pending removeObjectAtIndex:0];
+        for (NSString *child in wq_list(directory, nil) ?: @[]) {
+            struct stat st;
+            if (!wq_stat(child, &st)) continue;
+            if (S_ISREG(st.st_mode) && [child.lastPathComponent isEqualToString:fileName]) [matches addObject:child];
+            else if (S_ISDIR(st.st_mode)) [pending addObject:child];
+            if (matches.count >= 2) break;
+        }
+    }
+    return matches;
+}
+
 static NSString *wq_patch_container_for_file(NSString *path, NSString **bundleOut)
 {
     NSString *candidate = [path stringByStandardizingPath];
@@ -169,13 +202,24 @@ static NSString *wq_patch_target(NSDictionary *manifest, NSString **errorText)
         NSString *savedTarget = [savedContainer stringByAppendingPathComponent:relative];
         if (wq_stat(savedTarget, &st) && S_ISREG(st.st_mode)) return savedTarget;
     }
-    NSArray *containers = wq_ls_container_paths(nil);
-    for (NSString *root in containers) {
-        NSString *normalizedRoot = root.stringByStandardizingPath;
-        NSString *found = wq_bundle_id_for_container(normalizedRoot) ?: wq_container_label(normalizedRoot);
-        if ([found isEqualToString:bid]) return [normalizedRoot stringByAppendingPathComponent:relative];
+    NSArray<NSString *> *containers = wq_patch_containers_for_bundle(bid);
+    if (!containers.count) {
+        if (errorText) *errorText = [NSString stringWithFormat:@"Não foi encontrado nenhum bundle %@ no sistema. Abra o app alvo no WQ Files e conceda acesso ao container antes de aplicar o patch.", bid];
+        return nil;
     }
-    if (errorText) *errorText = [NSString stringWithFormat:@"Could not find the container for %@.", bid];
+    NSMutableArray<NSString *> *fallbackMatches = [NSMutableArray new];
+    for (NSString *root in containers) {
+        NSString *exact = [root.stringByStandardizingPath stringByAppendingPathComponent:relative];
+        struct stat exactStat;
+        if (wq_stat(exact, &exactStat) && S_ISREG(exactStat.st_mode)) return exact;
+        [fallbackMatches addObjectsFromArray:wq_patch_find_files_named(root, relative.lastPathComponent)];
+    }
+    if (fallbackMatches.count == 1) return fallbackMatches.firstObject;
+    if (fallbackMatches.count > 1) {
+        if (errorText) *errorText = [NSString stringWithFormat:@"Mais de um arquivo %@ foi encontrado no Bundle ID %@. Informe o caminho relativo completo para o patch.", relative.lastPathComponent, bid];
+        return nil;
+    }
+    if (errorText) *errorText = [NSString stringWithFormat:@"Não foi encontrado nenhum arquivo %@ no Bundle ID %@. Verifique o caminho relativo ou abra o app alvo no WQ Files para conceder acesso ao container.", relative, bid];
     return nil;
 }
 
