@@ -15,11 +15,13 @@
 #import "WQAccess.h"
 #import "WQCore.h"
 #import "WQAccessSafety.h"
+#import "compat3106/bad_query.h"
 #import <dlfcn.h>
 #import <objc/message.h>
 #import <dirent.h>
 #import <errno.h>
 #import <fcntl.h>
+#import <limits.h>
 #import <string.h>
 #import <stdatomic.h>
 #import <sys/clonefile.h>
@@ -247,6 +249,13 @@ static BOOL wq_grant_opens(NSString *path)
     return errno != EPERM;
 }
 
+static BOOL wq_bad_query_window(void)
+{
+    NSOperatingSystemVersion version = NSProcessInfo.processInfo.operatingSystemVersion;
+    return version.majorVersion == 26 &&
+        (version.minorVersion < 6 || (version.minorVersion == 6 && version.patchVersion <= 1));
+}
+
 BOOL wq_grant(NSString *path)
 {
     static dispatch_once_t once;
@@ -274,6 +283,22 @@ BOOL wq_grant(NSString *path)
     if (lstat(key.fileSystemRepresentation, &st) != 0) {
         [gGrantLock unlock];
         return NO;  // worse_query needs an existing target
+    }
+    // 3106 uses bad_query on the verified iOS 26.0–26.6.1 window. Keep the
+    // current worse_query implementation as the fallback so existing builds
+    // and signing arrangements are not changed by this addition.
+    if (wq_bad_query_window()) {
+        char pathBuffer[PATH_MAX];
+        if (strlcpy(pathBuffer, key.fileSystemRepresentation, sizeof(pathBuffer)) < sizeof(pathBuffer)) {
+            int64_t badHandle = bad_query(pathBuffer, false, NULL, false);
+            if (badHandle >= 0 && wq_grant_opens(key)) {
+                gGrants[key] = @(badHandle);
+                [gGrantOrder addObject:key];
+                [gGrantLock unlock];
+                return YES;
+            }
+            if (badHandle >= 0) bad_query_release(badHandle);
+        }
     }
     // iOS 26 needs the alternative query flags; try the likely ones first so
     // a grant costs one query, and the other set only when that fails. A

@@ -60,7 +60,7 @@ SDK=$(xcrun --sdk iphoneos --show-sdk-path)
 OBJC_FLAGS=(-fobjc-arc -fmodules -fmodules-cache-path="$OUT/ModuleCache" -arch arm64
     -miphoneos-version-min="$MINIMUM_IOS_VERSION"
     -isysroot "$SDK" -Wall -Wextra -Werror -O2)
-OBJC_SOURCES=(WQLocalization.m WQTheme.m WQParticleView.m WQCore.m WQAccess.m WQLaunchServices.m WQUI.m WQSharing.m WQApps.m WQCache.m WQPlistEditor.m WQHexViewer.m WQPatch.m WQSettings.m main.m)
+OBJC_SOURCES=(WQLocalization.m WQTheme.m WQParticleView.m WQCore.m compat3106/bad_query.m WQAccess.m WQLaunchServices.m WQUI.m WQSharing.m WQApps.m WQCache.m WQPlistEditor.m WQHexViewer.m WQPatch.m WQSettings.m main.m)
 if [[ -f WQCalculadoraIPhoneView.swift && -f WQGateHostController.swift && "${WQ_SKIP_PREFLIGHT:-0}" != 1 ]]; then
     OBJC_OBJECTS=()
     for source in "${OBJC_SOURCES[@]}"; do
