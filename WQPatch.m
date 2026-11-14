@@ -65,7 +65,12 @@ static NSArray<NSString *> *wq_patch_containers_for_bundle(NSString *bundleID)
     NSMutableArray<NSString *> *matches = [NSMutableArray new];
     NSString *knownPath = wq_bundle_path_for_id(bundleID);
     if (knownPath.length) [matches addObject:knownPath.stringByStandardizingPath];
-    for (NSString *root in wq_ls_container_paths(nil) ?: @[]) {
+    NSMutableArray<NSString *> *candidates = [NSMutableArray arrayWithArray:wq_ls_container_paths(nil) ?: @[]];
+    // The LaunchServices store can omit a recently installed or updated game.
+    // Enumerate the application-data parent as a second source of container roots.
+    NSArray<NSString *> *discovered = wq_enumerate(@"/private/var/mobile/Containers/Data/Application", 0, nil, nil);
+    if (discovered.count) [candidates addObjectsFromArray:discovered];
+    for (NSString *root in candidates) {
         NSString *normalizedRoot = root.stringByStandardizingPath;
         NSString *found = wq_bundle_id_for_container(normalizedRoot) ?: wq_container_label(normalizedRoot);
         if ([found caseInsensitiveCompare:bundleID] == NSOrderedSame && ![matches containsObject:normalizedRoot]) [matches addObject:normalizedRoot];
