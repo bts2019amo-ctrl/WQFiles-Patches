@@ -78,6 +78,22 @@ static NSArray<NSString *> *wq_patch_containers_for_bundle(NSString *bundleID)
     return matches;
 }
 
+static NSArray<NSString *> *wq_patch_all_data_containers(void)
+{
+    NSArray<NSString *> *roots = wq_enumerate(@"/private/var/mobile/Containers/Data/Application", 0, nil, nil);
+    if (!roots.count) return @[];
+    NSMutableArray<NSString *> *unique = [NSMutableArray new];
+    NSMutableSet<NSString *> *seen = [NSMutableSet set];
+    for (NSString *root in roots) {
+        NSString *normalized = root.stringByStandardizingPath;
+        if (normalized.length && ![seen containsObject:normalized]) {
+            [seen addObject:normalized];
+            [unique addObject:normalized];
+        }
+    }
+    return unique;
+}
+
 static NSArray<NSString *> *wq_patch_find_files_named(NSString *root, NSString *fileName)
 {
     if (!root.length || !fileName.length) return @[];
@@ -156,7 +172,9 @@ static void wq_patch_collect_recursive(NSString *directory, NSString *targetFile
     NSString *normalized = directory.stringByStandardizingPath;
     if (!normalized.length || [visited containsObject:normalized]) return;
     [visited addObject:normalized];
-    for (NSString *child in wq_list(normalized, nil) ?: @[]) {
+    NSArray<NSString *> *children = wq_list(normalized, nil);
+    if (!children) children = wq_enumerate(normalized, 0, nil, nil);
+    for (NSString *child in children ?: @[]) {
         struct stat st;
         if (!wq_stat(child, &st)) continue;
         if (S_ISREG(st.st_mode) && [child.lastPathComponent caseInsensitiveCompare:targetFileName] == NSOrderedSame) {
@@ -195,6 +213,23 @@ static NSString *wq_patch_target(NSDictionary *manifest, NSString **errorText)
                 }
             }
             wq_patch_collect_recursive(normalizedRoot, targetFileName, preferredRoot ? preferred : fallback, preferredRoot ? preferredVisited : fallbackVisited);
+        }
+        // On some iOS versions the inode scan finds the application container
+        // but its Bundle ID label is unavailable. Test the complete relative
+        // Documents/... path against those roots as well.
+        if (relativeCandidate.length) {
+            for (NSString *root in wq_patch_all_data_containers()) {
+                if ([roots containsObject:root]) continue;
+                NSString *candidate = [root stringByAppendingPathComponent:relativeCandidate];
+                struct stat st;
+                if (wq_stat(candidate, &st) && S_ISREG(st.st_mode)) [fallback addObject:candidate];
+            }
+        }
+        if (!fallback.count) {
+            for (NSString *root in wq_patch_all_data_containers()) {
+                if ([roots containsObject:root]) continue;
+                wq_patch_collect_recursive(root, targetFileName, fallback, fallbackVisited);
+            }
         }
         NSArray<NSString *> *matches = preferred.count ? preferred : fallback;
         if (matches.count == 1) return matches.firstObject;
