@@ -48,6 +48,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>39</string>
+	<key>WQRemoteManifestURL</key>
+	<string>https://proxyremote-bttmjbbo.manus.space/api/v1/manifest</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
