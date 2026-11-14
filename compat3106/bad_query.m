@@ -9,6 +9,12 @@
 #include <sys/mount.h>
 #include <sys/fsgetpath.h>
 
+#if OS_OBJECT_USE_OBJC
+#define BQ_XPC_RELEASE(object) ((void)0)
+#else
+#define BQ_XPC_RELEASE(object) xpc_release(object)
+#endif
+
 typedef void *(*container_query_create_fn)(void);
 typedef void (*container_query_set_class_fn)(void *, uint64_t);
 typedef void (*container_query_set_identifiers_fn)(void *, xpc_object_t);
@@ -81,7 +87,7 @@ int64_t bad_query(char* path, bool create, char *group_identifier, bool is_group
             query_set_part_domain(query, part);
         } else {
             BAD_QUERY_ERR("asprintf failed path=%s", path);
-            xpc_release(identifier);
+            BQ_XPC_RELEASE(identifier);
             query_free(query);
             dlclose(mgr);
             return -5;
@@ -91,7 +97,7 @@ int64_t bad_query(char* path, bool create, char *group_identifier, bool is_group
             query_set_part_domain(query, part);
         } else {
             BAD_QUERY_ERR("asprintf failed group=%s path=%s", group_identifier, path);
-            xpc_release(identifier);
+            BQ_XPC_RELEASE(identifier);
             query_free(query);
             dlclose(mgr);
             return -5;
@@ -108,7 +114,7 @@ int64_t bad_query(char* path, bool create, char *group_identifier, bool is_group
     if (!result) {
         BAD_QUERY_ERR("daemon returned no result (denied?) path=%s part=%s", path, part);
         free(part);
-        xpc_release(identifier);
+        BQ_XPC_RELEASE(identifier);
         query_free(query);
         dlclose(mgr);
         return -3;
@@ -117,7 +123,7 @@ int64_t bad_query(char* path, bool create, char *group_identifier, bool is_group
     if (!token) {
         BAD_QUERY_ERR("daemon result contained no sandbox token path=%s part=%s", path, part);
         free(part);
-        xpc_release(identifier);
+        BQ_XPC_RELEASE(identifier);
         query_free(query);
         dlclose(mgr);
         return -4;
@@ -126,7 +132,7 @@ int64_t bad_query(char* path, bool create, char *group_identifier, bool is_group
     handle = consume_extension(token);
     free(token);
     free(part);
-    xpc_release(identifier);
+    BQ_XPC_RELEASE(identifier);
     query_free(query);
 
     dlclose(mgr);
@@ -156,7 +162,7 @@ char *bad_query_list(char *path, int64_t max_inode) {
     out[0] = '\0';
 
     char buf[1200];
-    for (uint64_t ino = 1; ino <= max_inode; ino++) {
+    for (uint64_t ino = 1; max_inode > 0 && ino <= (uint64_t)max_inode; ino++) {
         ssize_t n = fsgetpath(buf, sizeof(buf), &fsid, ino);
         if (n <= 0) continue;
 
